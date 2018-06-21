@@ -7183,7 +7183,8 @@ sub check_for_varnish {
 
 sub check_for_nginx {
     return unless i_am_one_of( 'ea4', 'ea3' );
-    return unless exists_process_cmd( qr{ nginx }xms, 'root' );
+    my %procs = grep_process_cmd( qr{ nginx: \s master }xms, 'root' );
+    return unless grep { $procs{$_}->{ARGS} !~ /imunify360/ } keys %procs;    # Ignore imunify360 nginx process
     print_3rdp('nginx: ');
     print_3rdp2('is running');
 }
