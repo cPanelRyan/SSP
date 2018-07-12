@@ -2924,7 +2924,7 @@ sub check_apache_modules {
         $add->( 'ruid2_module',   'Incompatible with ModSecurity SecDataDir (collections) until EA-4093 is resolved.' );
     }
     if ( defined $CPCONF{'jailapache'} && $CPCONF{'jailapache'} == 1 ) {
-        $add->( 'ruid2_module', 'Enabled with Jail Apache Virtual Hosts tweak. This can break some Mailman URLs. See FB-84393, FB-104017, and tickets 5015613, 5227891.' );
+        $add->( 'ruid2_module', 'Enabled with Jail Apache Virtual Hosts tweak. This can break some Mailman URLs. See CPANEL-9501 and CPANEL-18127.' );
         my $ea3_php = get_ea3_php_conf_href();
         if ( defined $ea3_php and defined $ea3_php->{'php5handler'} and $ea3_php->{'php5handler'} eq 'suphp' ) {
             $add->( 'ruid2_module', 'Enabled with Jail Apache Virtual Hosts tweak and suPHP handler, these are NOT COMPATIBLE, see FB-70561, FB-105901.' );
