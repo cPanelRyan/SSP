@@ -34,7 +34,7 @@ use Cwd qw(abs_path);
 use Getopt::Long();
 
 # Application version (IMPORTANT! Increment this before submitting a pull request)
-our $VERSION = '4.99.189';
+our $VERSION = '4.99.190';
 
 # Global variables that alter application runtime
 our $OPT_SKIP_NETWORKING;    # Disable network calls
@@ -166,7 +166,7 @@ sub run {
             load_module_with_fallbacks(
                 'needed_subs'  => [qw{tv_interval gettimeofday}],
                 'modules'      => [qw{Time::HiRes}],
-                'fail_warning' => "Missing Perl Module: Time::HiRes -- Profiling won't work without this -- Try using /usr/local/cpanel/3rdparty/bin/perl?",
+                'fail_warning' => 'Profiling won\'t work without this',
                 'fail_fatal'   => 1,
             );
             $MEMOIZE_CACHE{'PROFILING'} = { enabled => 1 };
@@ -2924,7 +2924,7 @@ sub check_apache_modules {
         $add->( 'ruid2_module',   'Incompatible with ModSecurity SecDataDir (collections) until EA-4093 is resolved.' );
     }
     if ( defined $CPCONF{'jailapache'} && $CPCONF{'jailapache'} == 1 ) {
-        $add->( 'ruid2_module', 'Enabled with Jail Apache Virtual Hosts tweak. This can break some Mailman URLs. See FB-84393, FB-104017, and tickets 5015613, 5227891.' );
+        $add->( 'ruid2_module', 'Enabled with Jail Apache Virtual Hosts tweak. This can break some Mailman URLs. See CPANEL-9501 and CPANEL-18127.' );
         my $ea3_php = get_ea3_php_conf_href();
         if ( defined $ea3_php and defined $ea3_php->{'php5handler'} and $ea3_php->{'php5handler'} eq 'suphp' ) {
             $add->( 'ruid2_module', 'Enabled with Jail Apache Virtual Hosts tweak and suPHP handler, these are NOT COMPATIBLE, see FB-70561, FB-105901.' );
@@ -5570,7 +5570,7 @@ sub check_for_rpm_overrides {
     return if !load_module_with_fallbacks(
         'needed_subs'  => [qw{LoadFile}],
         'modules'      => [qw{YAML::Syck}],
-        'fail_warning' => 'Missing Perl Module: YAML::Syck -- SSP can\'t check rpm.versions.d/local.versions for customization -- Try using /usr/local/cpanel/3rdparty/bin/perl?',
+        'fail_warning' => 'can\'t check rpm.versions.d/local.versions for customization',
     );
 
     my $ignore = {
@@ -5823,12 +5823,12 @@ sub get_license_info {
     return unless my $external_ip_address = get_external_ip();
     my $path = '/?ip=' . $external_ip_address;
     my $host = 'verify.cpanel.net';
-    return _http_get( Host => $host, Path => $path, ReportTimeout => 1 );
+    return _http_get( Host => $host, Path => $path, ReportTimeout => 1, SSL => 1, SSLLoadFailWarning => 'can\'t make HTTPS request to verify.cpanel.net' );
 }
 
 sub check_for_license_info {
     my $host       = 'verify.cpanel.net';
-    my $helper_url = "http://" . $host;
+    my $helper_url = "https://" . $host;
     my %license;
     my $file_is_solo             = license_file_is_solo();
     my $file_is_dnsonly          = license_file_is_dnsonly();
@@ -7190,7 +7190,8 @@ sub check_for_varnish {
 
 sub check_for_nginx {
     return unless i_am_one_of( 'ea4', 'ea3' );
-    return unless exists_process_cmd( qr{ nginx }xms, 'root' );
+    my %procs = grep_process_cmd( qr{ nginx: \s master }xms, 'root' );
+    return unless grep { $procs{$_}->{ARGS} !~ /imunify360/ } keys %procs;    # Ignore imunify360 nginx process
     print_3rdp('nginx: ');
     print_3rdp2('is running');
 }
@@ -7964,6 +7965,8 @@ sub get_external_license_ip {
 }
 
 sub _http_get {
+
+    # SSL connections have external dependencies that are not part of core Perl 5.6.
     my (%opts_in) = @_;
     return if $OPT_SKIP_NETWORKING;
     my %opts = (
@@ -7972,11 +7975,12 @@ sub _http_get {
         MaxReply            => 50_000,
         MultiHomed          => 1,
         Path                => '/',
-        Port                => 80,
         Proto               => 'tcp',
         ReportTimeout       => 0,
         ReportTimeoutHeader => '',
-        Timeout             => 2,
+        SSL                 => 0,
+        SSLLoadFailWarning  => undef,
+        SSLVerifyHost       => 1,
         Tries               => 1,
         WantHeaders         => 0,
         %opts_in
@@ -7984,6 +7988,19 @@ sub _http_get {
     my $try = 0;
     my $reply;
     die unless defined $opts{Host};
+    if ( $opts{SSL} ) {
+        return unless load_module_with_fallbacks(
+            'needed_subs'  => [qw(start_SSL import)],
+            'modules'      => [qw(IO::Socket::SSL)],
+            'fail_warning' => $opts{SSLLoadFailWarning},
+        );
+        $opts{Port}    = 443 if not defined $opts{Port};
+        $opts{Timeout} = 3   if not defined $opts{Timeout};
+    }
+    else {
+        $opts{Port}    = 80 if not defined $opts{Port};
+        $opts{Timeout} = 2  if not defined $opts{Timeout};
+    }
     for ( 1 .. $opts{Tries} ) {
         local $@;
         $try++;
@@ -8006,7 +8023,18 @@ sub _http_get {
                 Proto      => $opts{Proto},
                 Timeout    => $opts{Timeout},
             );
-            my $header_host = ( $opts{Port} != 80 ) ? $opts{Host} . ":" . $opts{Port} : $opts{Host};
+            if ( $opts{SSL} ) {
+                my $ssl_verify_opt;
+                ## no critic (StringyEval) # The SSL_VERIFY_* constants may not be loaded at compile time.
+                eval q(
+                    IO::Socket::SSL->import(qw(SSL_VERIFY_PEER SSL_VERIFY_NONE));
+                    $ssl_verify_opt = $opts{SSLVerifyHost} ? IO::Socket::SSL::SSL_VERIFY_PEER : IO::Socket::SSL::SSL_VERIFY_NONE;
+                );
+                ## use critic
+                return unless defined $ssl_verify_opt;
+                return unless IO::Socket::SSL->start_SSL( $sock, SSL_hostname => $opts{Host}, SSL_verify_mode => $ssl_verify_opt );
+            }
+            my $header_host = ( $opts{Port} != 80 and $opts{Port} != 443 ) ? $opts{Host} . ":" . $opts{Port} : $opts{Host};
             if ($sock) {
                 print $sock "GET " . $opts{Path} . " HTTP/1.0\r\nUser-Agent: " . $opts{Agent} . "\r\nHost: " . $header_host . "\r\nAccept: */*\r\n\r\n";
                 read $sock, $reply, $opts{MaxReply};
@@ -8182,7 +8210,7 @@ sub get_tiers_json_href {
     my $json = load_module_with_fallbacks(
         'needed_subs'  => [qw{new utf8 decode}],
         'modules'      => [qw{Cpanel::JSON::XS JSON::XS JSON::PP}],
-        'fail_warning' => "Missing Perl Modules: JSON -- TIERS.json can't be read without this -- Try using /usr/local/cpanel/3rdparty/bin/perl?",
+        'fail_warning' => 'TIERS.json can\'t be read without one of these',
     );
 
     return unless $json;
@@ -8390,7 +8418,7 @@ sub load_module_with_fallbacks {
         my $inc_entry = join( "/", split( "::", $module2try ) ) . ".pm";
         if ( !$INC{$module2try} ) {
             local $@;
-            next if !eval "require $module2try; 1";
+            next if !eval "require $module2try; 1";    ## no critic (StringyEval)
         }
 
         # Check if the imported modules 'can' do the job
@@ -8404,7 +8432,7 @@ sub load_module_with_fallbacks {
     # Fallback to coderef, but don't do sanity checking on this, as it is presumed the caller "knows what they are doing" if passing a coderef.
     if ( !$namespace_loaded ) {
         if ( !$opts{'fallback'} || ref $opts{'fallback'} != 'CODE' ) {
-            print_warn("$opts{'fail_warning'}\n") if $opts{'fail_warning'};
+            print_warn( 'Missing Perl Module(s): ' . join( ', ', @{ $opts{'modules'} } ) . ' -- ' . $opts{'fail_warning'} . " -- Try using /usr/local/cpanel/3rdparty/bin/perl?\n" ) if $opts{'fail_warning'};
             die "Stopping here." if $opts{'fail_fatal'};
         }
         else {
@@ -8452,11 +8480,10 @@ sub _memoize {    ## no critic (RequireArgUnpacking)
 }
 
 sub _memoize_parallel_populate_cache {    ## no critic (RequireArgUnpacking)
-                                          # We have to try conditionally loading Data::Dumper here instead of at BEGIN because the CentOS base 'perl' package does not include it, even though it is a core part of Perl.
     return if !load_module_with_fallbacks(
         'needed_subs'  => [qw{Purity Terse Indent Dump new}],
         'modules'      => [qw{Data::Dumper}],
-        'fail_warning' => 'Data::Dumper: SSP will take longer to run -- Use /usr/local/cpanel/3rdparty/bin/perl or "yum install perl-Data-Dumper" if needed',
+        'fail_warning' => 'SSP will take longer to run',
     );
     return if defined $MEMOIZE_CACHE{'PRECACHE'} and $MEMOIZE_CACHE{'PRECACHE'}->{'disabled'};
 
