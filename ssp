@@ -5611,7 +5611,7 @@ sub check_for_rpm_overrides {
                 print_warning( $package . ' is configured as ' . $ref->{'target_settings'}->{$package} );
             }
         }
-        for my $section (qw( install_targets rpm_groups rpm_locations srpm_sub_packages srpm_versions url_templates )) {
+        for my $section (qw( install_targets location_keys rpm_groups rpm_locations srpm_sub_packages srpm_versions url_templates )) {
             if ( exists $ref->{$section} and scalar keys %{ $ref->{$section} } ) {
                 print_warn( $local_versions . ': ' );
                 print_warning( 'Custom ' . $section . ' exists for: [ ' . join( ' ', sort keys %{ $ref->{$section} } ) . ' ]' );
