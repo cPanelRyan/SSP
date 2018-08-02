@@ -745,10 +745,7 @@ sub get_local_ipaddrs_aref {
     }
     for my $line (@output) {
         if ( $line =~ m{ (\d+\.\d+\.\d+\.\d+) }xms ) {
-            my $ipaddr = $1;
-            unless ( $ipaddr =~ m{ \A 127\. }xms ) {
-                push @local_ipaddrs_list, $ipaddr;
-            }
+            push @local_ipaddrs_list, $1;
         }
     }
 
@@ -3926,7 +3923,7 @@ sub check_for_unsupported_nat {
     if ( defined($external_ip_address) ) {
         if ( !grep { /$external_ip_address/ } @local_ipaddrs ) {
             print_warn('NAT: ');
-            print_warning("external IP address $external_ip_address is not bound to server");
+            print_warning("external IP address $external_ip_address is not bound to server and /var/cpanel/cpnat does not exist");
         }
         return;
     }
