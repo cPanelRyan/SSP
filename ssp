@@ -5576,6 +5576,7 @@ sub check_for_rpm_overrides {
     my $ignore = {
         'target_settings' => {
             'clamav'       => '(?:un)?installed',
+            'easy-icu'     => '(?:un)?installed',
             'easy-tomcat7' => '(?:un)?installed',
             'munin'        => '(?:un)?installed',
         },
