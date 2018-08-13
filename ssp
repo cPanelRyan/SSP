@@ -34,7 +34,7 @@ use Cwd qw(abs_path);
 use Getopt::Long();
 
 # Application version (IMPORTANT! Increment this before submitting a pull request)
-our $VERSION = '4.99.190';
+our $VERSION = '4.99.191';
 
 # Global variables that alter application runtime
 our $OPT_SKIP_NETWORKING;    # Disable network calls
@@ -745,10 +745,7 @@ sub get_local_ipaddrs_aref {
     }
     for my $line (@output) {
         if ( $line =~ m{ (\d+\.\d+\.\d+\.\d+) }xms ) {
-            my $ipaddr = $1;
-            unless ( $ipaddr =~ m{ \A 127\. }xms ) {
-                push @local_ipaddrs_list, $ipaddr;
-            }
+            push @local_ipaddrs_list, $1;
         }
     }
 
@@ -3926,7 +3923,7 @@ sub check_for_unsupported_nat {
     if ( defined($external_ip_address) ) {
         if ( !grep { /$external_ip_address/ } @local_ipaddrs ) {
             print_warn('NAT: ');
-            print_warning("external IP address $external_ip_address is not bound to server");
+            print_warning("external IP address $external_ip_address is not bound to server and /var/cpanel/cpnat does not exist");
         }
         return;
     }
@@ -5576,6 +5573,7 @@ sub check_for_rpm_overrides {
     my $ignore = {
         'target_settings' => {
             'clamav'       => '(?:un)?installed',
+            'easy-icu'     => '(?:un)?installed',
             'easy-tomcat7' => '(?:un)?installed',
             'munin'        => '(?:un)?installed',
         },
@@ -5610,7 +5608,7 @@ sub check_for_rpm_overrides {
                 print_warning( $package . ' is configured as ' . $ref->{'target_settings'}->{$package} );
             }
         }
-        for my $section (qw( install_targets rpm_groups rpm_locations srpm_sub_packages srpm_versions url_templates )) {
+        for my $section (qw( install_targets location_keys rpm_groups rpm_locations srpm_sub_packages srpm_versions url_templates )) {
             if ( exists $ref->{$section} and scalar keys %{ $ref->{$section} } ) {
                 print_warn( $local_versions . ': ' );
                 print_warning( 'Custom ' . $section . ' exists for: [ ' . join( ' ', sort keys %{ $ref->{$section} } ) . ' ]' );
