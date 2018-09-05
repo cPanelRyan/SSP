@@ -5934,6 +5934,11 @@ sub check_for_cpbackup_exclude_everything {
             print_warning("'*' exists by itself in $conf . This can cause 0 byte backups");
             last;
         }
+        elsif (/\x00/) {
+            print_warn('Backups: ');
+            print_warning("'/etc/cpbackup-exclude.conf contains NUL bytes.  This can result in homedir being skipped (see CPANEL-17065 for details)");
+            last;
+        }
     }
     close $conf_fh;
 }
