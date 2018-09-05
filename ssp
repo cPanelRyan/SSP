@@ -5798,6 +5798,9 @@ sub check_for_disabled_services {
         '/etc/tailwatchddisable'                                 => 'tailwatchd',
         '/etc/tailwatchdisable'                                  => 'tailwatchd',
         '/etc/tomcatdisable'                                     => 'tomcat',
+        '/var/cpanel/disabled/secureit'                          => 'secureit',
+        '/var/cpanel/disabled/securetmp'                         => 'securetmp',
+        '/var/cpanel/disabled/auto-restart-services'             => '/var/cpanel/disabled/auto-restart-services',
     );
 
     my %cpconfcheck = (
@@ -6066,6 +6069,10 @@ sub check_for_allow_query_localhost {
 sub check_for_nocloudlinux_touchfile {
     if ( -e '/var/cpanel/nocloudlinux' ) {
         print_warn('/var/cpanel/nocloudlinux: ');
+        print_warning('exists! CloudLinux cannot be installed when this file is present.');
+    }
+    elsif ( -e '/var/cpanel/disabled/cloudlinux' ) {
+        print_warn('/var/cpanel/disabled/cloudlinux');
         print_warning('exists! CloudLinux cannot be installed when this file is present.');
     }
 }
