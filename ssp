@@ -7779,6 +7779,8 @@ sub check_for_cpro {
       /usr/bin/update_clnv2.lock
       /usr/bin/update_cpanelv2
       /usr/bin/update_cpanelv2.lock
+      /usr/bin/update_cpanelv3
+      /usr/bin/update_cpanelv3.lock
       /usr/bin/yasin
       /usr/local/cpanel/bin/cspconnector
       /usr/local/cpanel/bin/sendmail.txt
