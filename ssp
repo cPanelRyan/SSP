@@ -5944,7 +5944,7 @@ sub check_for_cpbackup_exclude_everything {
         }
         elsif (/\x00/) {
             print_warn('Backups: ');
-            print_warning("'/etc/cpbackup-exclude.conf contains NUL bytes.  This can result in homedir being skipped (see CPANEL-17065 for details)");
+            print_warning('/etc/cpbackup-exclude.conf contains NUL bytes - can result in homedir being skipped. See CPANEL-17065.');
             last;
         }
     }
