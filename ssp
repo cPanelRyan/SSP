@@ -3184,7 +3184,7 @@ sub check_for_non_default_permissions {
             '/var/cpanel/userhomes'                       => { mode => [ '0755', '0711' ] },
             '/var/cpanel/userhomes/cpanelroundcube'       => { mode => ['0711'], user => 'cpanelroundcube', group => 'cpanelroundcube' },
             '/var/cpanel/users'                           => { mode => ['0711'] },
-            '/var/cpanel/cpanel.config'                   => { mode => ['0644'], user => 'root', group => 'root' },
+            $CPANEL_CONFIG_FILE                           => { mode => ['0644'], user => 'root', group => 'root', perms_help => 'Ensure this is readable by all users or it can cause cPanel UI issues.' },
             '/var/log/exim_mainlog'                       => { mode => ['0640'], user => 'mailnull', group => 'mail' },
             '/var/log/exim_paniclog'                      => { mode => ['0640'], user => 'mailnull', group => 'mail' },
             '/var/log/exim_rejectlog'                     => { mode => ['0640'], user => 'mailnull', group => 'mail' },
