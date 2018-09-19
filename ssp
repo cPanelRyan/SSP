@@ -1222,18 +1222,15 @@ sub check_for_hacked_server_touchfile {
 
     return if scalar @touchfiles == 0;
 
-    print_critical();
-    print_crit('HACKED SERVER! ');
-    print_critical('[L1/L2 ESCALATE TO L3 NOW]. The following touchfiles were found:');
+    print_generic_hack_predef('HACKED SERVER');
     for my $touchfile (@touchfiles) {
         if ( $touchfile =~ /^\.cp\.([^\d]+)\.(\d{4}-\d{2}-\d{2})_([^_]+)_(\d+)$/ ) {
             my ( $cptech, $date, $ipaddr, $ticket ) = ( $1, $2, $3, $4 );
             $date =~ s#-#/#g;
             $cptech = ucfirst $cptech;
-            print_critical("\t => $docdir/$touchfile");
-            print_critical("\t\t $cptech reported this server at $ipaddr as compromised on $date local server time in ticket $ticket");
+            print_critical("\tL3: $cptech reported this server at $ipaddr as compromised on $date local server time in ticket $ticket");
             if ( !grep { /^$ipaddr$/ } @{ get_local_ipaddrs_aref() } ) {
-                print_critical("\t\t NOTE: IP addr $ipaddr not found on the server!");
+                print_critical("\t \\_ NOTE: IP address $ipaddr not found on the server!");
             }
         }
     }
@@ -7399,7 +7396,7 @@ sub print_generic_hack_predef {
     print_critical();
     print_crit( '!! [ ' . $name . ' ] !! ' );
     print_critical('Escalate this ticket to L3 using "ESCALATE - Hacked Server Response for L1/L2->L3 ( All Analysts )"');
-    print_critical("\tIf the malware appears to be the direct cause of services being down, please escalate the ticket to Emergency status.");
+    print_critical("\t-- If this appears to be the direct cause of services being down, please escalate the ticket to Emergency status.");
     print_critical("\tL1/L2: LOG OUT NOW.  Do not execute any other commands unless given explicit directions by an L3 analyst or Supervisor.");
 }
 
