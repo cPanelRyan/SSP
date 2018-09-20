@@ -2591,7 +2591,7 @@ sub check_cpanelsync_exclude {
 }
 
 sub check_for_rawopts {
-    return unless i_am_one_of( 'ea4', 'ea3' );    # Check when using EA4 until it is no longer possible to revert to EA3.
+    return unless i_am('ea3') or ea3_downgrade_is_possible();
     my $rawopts_dir = '/var/cpanel/easy/apache/rawopts';
     return unless -d $rawopts_dir;
     my @dir_contents;
@@ -2607,7 +2607,7 @@ sub check_for_rawopts {
 }
 
 sub check_for_rawenv {
-    return unless i_am_one_of( 'ea4', 'ea3' );    # Check when using EA4 until it is no longer possible to revert to EA3.
+    return unless i_am('ea3') or ea3_downgrade_is_possible();
     my $rawenv_dir = '/var/cpanel/easy/apache/rawenv';
     return unless -d $rawenv_dir;
     my @dir_contents;
@@ -2623,12 +2623,12 @@ sub check_for_rawenv {
 }
 
 sub check_for_custom_opt_mods {
-    return unless i_am_one_of( 'ea4', 'ea3' );    # Check when using EA4 until it is no longer possible to revert to EA3.
+    return unless i_am('ea3') or ea3_downgrade_is_possible();
     my $custom_opt_mods;
     my $dir = '/var/cpanel/easy/apache/custom_opt_mods';
     return unless -d $dir;
 
-    my @custom_opt_mods;                          # items in /var/cpanel/easy/apache/custom_opt_mods/
+    my @custom_opt_mods;    # items in /var/cpanel/easy/apache/custom_opt_mods/
     find(
         sub {
             # ignore these, Attracta:
@@ -3824,7 +3824,7 @@ sub check_easyapache {
 }
 
 sub check_for_ea3_hooks {
-    return unless i_am_one_of( 'ea4', 'ea3' );                      # Run with EA4 until it is impossible to revert to EA3.
+    return unless i_am('ea3') or ea3_downgrade_is_possible();
 
     my $hooks;
 
@@ -4604,10 +4604,10 @@ sub check_for_apache_rlimits {
 }
 
 sub check_for_usr_local_lib_libz_so {
-    return unless i_am('ea3');
+    return unless i_am('ea3') or ea3_downgrade_is_possible();
     if ( -f '/usr/local/lib/libz.so' ) {
         print_warn('/usr/local/lib/libz.so: ');
-        print_warning('exists. This can prevent EA from completing');
+        print_warning('exists. This can prevent an EA3 build from completing');
     }
 }
 
@@ -4616,30 +4616,28 @@ sub check_for_non_default_modsec_rules {
     my $modules = get_apache_modules_href();
     return unless defined $modules->{'security_module'} or defined $modules->{'security2_module'};
 
-    my $modsec2_conf      = '/usr/local/apache/conf/modsec2.conf';
-    my $modsec2_user_conf = '/usr/local/apache/conf/modsec2.user.conf';
-    my $modsec_rules_dir  = '/usr/local/apache/conf/modsec_rules';
+    my $conf_prefix   = i_am('ea4') ? '/etc/apache2/conf.d/' : '/usr/local/apache/conf/';
+    my $modsec_prefix = i_am('ea4') ? 'modsec/'              : '';
+    my $modsec2_conf  = $conf_prefix . 'modsec2.conf';
+    my $modsec2_user_conf = $conf_prefix . $modsec_prefix . 'modsec2.user.conf';
+    my $modsec_rules_dir  = $conf_prefix . $modsec_prefix . 'modsec_rules';
 
-    if ( -f $modsec2_conf ) {
-        my $modsec2_conf_size     = ( stat($modsec2_conf) )[7];
-        my $modsec2_conf_max_size = 1500;
+    if ( my $modsec2_conf_size = -s $modsec2_conf ) {
+        my $modsec2_conf_max_size = 1580;
         if ( $modsec2_conf_size > $modsec2_conf_max_size ) {
-            print_warn('modsec: ');
+            print_warn('Mod Security: ');
             print_warning("$modsec2_conf is > $modsec2_conf_max_size bytes, may contain custom rules");
         }
     }
 
-    if ( -f $modsec2_user_conf ) {
-        my $modsec2_user_conf_size = ( stat($modsec2_user_conf) )[7];
-        if ( $modsec2_user_conf_size != 0 ) {
-            print_warn('modsec: ');
-            print_warning("$modsec2_user_conf is not empty, may contain rules");
-        }
+    if ( -s $modsec2_user_conf ) {
+        print_warn('Mod Security: ');
+        print_warning("$modsec2_user_conf is not empty, may contain custom rules");
     }
 
     if ( -d $modsec_rules_dir ) {
-        print_warn('modsec: ');
-        print_warning("$modsec_rules_dir exists, 3rd party rules may be in use");
+        print_warn('Mod Security: ');
+        print_warning("$modsec_rules_dir exists, 3rd-party rules may be in use");
     }
 }
 
@@ -4688,12 +4686,12 @@ sub check_etc_hosts_sanity {
 
     if ($localhost_not_127) {
         print_warn("$hosts: ");
-        print_warning('contains an entry for "localhost" that isn\'t 127.0.0.1! This can break EA and webmail logins');
+        print_warning('contains an entry for "localhost" that isn\'t 127.0.0.1! This can break EA3 or webmail logins');
     }
 
     if ( !$hostname_entry ) {
         print_warn("$hosts: ");
-        print_warning("no entry found for the server's hostname! [$hostname] (Can break EA or Apache when mod_unique_id is enabled)");
+        print_warning("no entry found for the server's hostname! [$hostname] (Can break EA3 or Apache when mod_unique_id is enabled)");
     }
 }
 
@@ -5046,7 +5044,7 @@ sub check_for_low_ulimit_for_root {
         }
 
         print_warn('ulimit: ');
-        print_warning("-m [ $ulimit_m ] -v [ $ulimit_v ] Low ulimits can cause EA to fail when run via the shell");
+        print_warning("-m [ $ulimit_m ] -v [ $ulimit_v ] Low ulimits can cause EA3 or other commands to fail when run via the shell");
     }
 }
 
@@ -5384,7 +5382,7 @@ sub check_for_zlib_h {
     return unless i_am('ea3');
     if ( -f '/usr/local/include/zlib.h' ) {
         print_warn('/usr/local/include/zlib.h: ');
-        print_warning('This file can cause EA to fail with libxml issues. You may need to mv it, run EA again');
+        print_warning('This file can cause EA3 to fail with libxml issues. You may need to mv it, run EA3 again');
     }
 }
 
@@ -5418,7 +5416,7 @@ sub check_for_percona_rpms {
         next if $rpm =~ /^percona-toolkit/i;    # Can be used with MariaDB/MySQL
         if ( $rpm =~ /^Percona/i ) {
             print_warn("Percona RPMs found:\n");
-            print_magenta("\t \\_ EA failing with \"Cannot find libmysqlclient\"? libmysqlclient.so missing? see FB-93349");
+            print_magenta("\t \\_ EA3 failing with \"Cannot find libmysqlclient\"? libmysqlclient.so missing? see FB-93349");
             print_magenta("\t \\_ If Exim is segfaulting after STARTTLS, this may be why. See ticket 3658929");
             print_magenta("\t \\_ If Apache with PHP DSO is segfaulting after restart, this may be why. See ticket 5525179");
             last;
@@ -6575,7 +6573,7 @@ sub check_for_pgpass_colon_in_password_field {
 }
 
 sub check_for_dirs_that_break_ea {
-    return unless i_am('ea3');
+    return unless i_am('ea3') or ea3_downgrade_is_possible();
     my @dirs = qw(
       /usr/local/cpanel/cgi-sys/php5
       /var/cpanel/conf/apache/wrappers/php5
@@ -6584,7 +6582,7 @@ sub check_for_dirs_that_break_ea {
     for my $dir (@dirs) {
         if ( -d $dir ) {
             print_warn("$dir: ");
-            print_warning('is a directory! This can cause EA issues. See ticket 4537779.');
+            print_warning('is a directory! This can cause EA3 issues. See ticket 4537779.');
         }
     }
 }
@@ -7354,7 +7352,7 @@ sub check_for_usr_local_mis {
     return if !-d $dir;
 
     print_3rdp("$dir: ");
-    print_3rdp2('found! This can prevent EA from completing. See ticket 4822059');
+    print_3rdp2('found! This can prevent EA3 from completing. See ticket 4822059');
 }
 
 sub check_for_opt_gsi_tools {
@@ -8425,6 +8423,11 @@ sub cpanel_version_is {
 sub os_version_is {
     my ( $mode, $ver ) = @_;
     return version_compare( $RUN_STATE->{var}->{os_version}, $mode, $ver );
+}
+
+sub ea3_downgrade_is_possible {
+    return 1 if cpanel_version_is(qw( < 11.77.0.0 )) and i_am('ea4');
+    return 0;
 }
 
 sub get_hostname {
