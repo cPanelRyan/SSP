@@ -1430,10 +1430,13 @@ sub print_cpanel_info {
 
     my $cpanel_tier = defined $cpupdate_conf->{CPANEL} ? $cpupdate_conf->{CPANEL} : 'Unknown (could not open/read /etc/cpupdate.conf ?)';
 
-    my $ctime       = ( stat($CPANEL_VERSION_FILE) )[10];
-    my $last_update = time() - $ctime;
-    $last_update = $last_update / 86400;
-    $last_update = sprintf '%.1f', $last_update;
+    my $last_update;
+    if ( my $ctime = ( stat($CPANEL_VERSION_FILE) )[9] ) {
+        $last_update = sprintf '%.1f', ( time() - $ctime ) / 86400;
+    }
+    else {
+        $last_update = 'UNKNOWN';
+    }
 
     my $output = _get_run_var('cpanel_original_version') . ' (' . uc($cpanel_tier) . ' tier)' . " Last update: $last_update days ago";
     $output .= " [ Installed $birthday ]" if $birthday;
