@@ -7949,24 +7949,42 @@ sub check_sshd_config {
     # default, check_missing, and help are optional, but orig_name should be defined if check_missing is used so that the mixed-case name can be printed
     # If check_missing exists, a warning is generated if the item is NOT in sshd_conf and does not match the default (if given)
     my %checks;
+    my $add = sub {
+        my ( $name, $new_ref ) = @_;
+        $checks{$name}{'help'} = [] unless defined $checks{$name}{'help'};
+        for my $key ( keys %{$new_ref} ) {
+            if ( $key eq 'help' ) {
+                push @{ $checks{$name}{'help'} }, @{ $new_ref->{'help'} };
+                next;
+            }
+            $checks{$name}{$key} = $new_ref->{$key};
+        }
+    };
+
     if ( not -e '/etc/cphulkddisable' ) {
-        $checks{'usedns'} = { default => 'no',  check_missing => 1, orig_name => 'UseDNS', help => 'UseDNS must be explicitly disabled for cPHulk to work correctly for SSH logins' };
-        $checks{'usepam'} = { default => 'yes', check_missing => 1, orig_name => 'UsePAM', help => 'UsePAM must be explicitly enabled for cPHulk and/or CageFS to process SSH logins' };
+        $add->( 'usedns', { default => 'no',  check_missing => 1, orig_name => 'UseDNS', help => ['Must be explicitly set to "no" for cPHulk to work correctly for SSH logins'] } );
+        $add->( 'usepam', { default => 'yes', check_missing => 1, orig_name => 'UsePAM', help => ['Must be explicitly set to "yes" for cPHulk to work with SSH logins'] } );
+    }
+    if ( i_am('cloudlinux') ) {
+        $add->( 'usepam', { default => 'yes', check_missing => 1, orig_name => 'UsePAM', help => ['Must be explicitly set to "yes" for CloudLinux LVE limits or CageFS to apply to SSH sessions'] } );
     }
 
+    my $indent = 34;
     for my $lc_key ( sort( keys(%checks) ) ) {
         my $check         = $checks{$lc_key};
         my $lc_default    = defined $check->{default} ? $check->{default} : '';
         my $check_missing = defined $check->{check_missing} ? 1 : 0;
         my $missing_name  = defined $check->{orig_name} ? $check->{orig_name} : $lc_key;
-        my $help          = defined $check->{help} ? '- ' . $check->{help} : '';
+        my $help          = scalar @{ $check->{help} } ? '- ' : '';
         my ( $conf_key, $conf_value ) = defined $conf->{$lc_key} ? @{ $conf->{$lc_key} } : undef;
         my $lc_conf_value = defined $conf_value ? lc($conf_value) : undef;
         if ( defined $lc_conf_value and $lc_conf_value ne $lc_default ) {
+            $help .= join( "\n" . ' ' x ( $indent + length($conf_key) + length($conf_value) ) . '\_ - ', @{ $check->{help} } );
             print_warn( $sshd_config . ': ' );
             print_warning("[ $conf_key $conf_value ] $help");
         }
         elsif ( $check_missing and not defined $conf_value ) {
+            $help .= join( "\n" . ' ' x ( $indent + length($missing_name) + 9 ) . '\_ - ', @{ $check->{help} } );
             print_warn( $sshd_config . ': ' );
             print_warning("[ $missing_name ] not found $help");
         }
