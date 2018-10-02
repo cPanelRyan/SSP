@@ -34,7 +34,7 @@ use Cwd qw(abs_path);
 use Getopt::Long();
 
 # Application version (IMPORTANT! Increment this before submitting a pull request)
-our $VERSION = '4.99.193';
+our $VERSION = '4.99.194';
 
 # Global variables that alter application runtime
 our $OPT_SKIP_NETWORKING;    # Disable network calls
@@ -1222,18 +1222,15 @@ sub check_for_hacked_server_touchfile {
 
     return if scalar @touchfiles == 0;
 
-    print_critical();
-    print_crit('HACKED SERVER! ');
-    print_critical('[L1/L2 ESCALATE TO L3 NOW]. The following touchfiles were found:');
+    print_generic_hack_predef('HACKED SERVER');
     for my $touchfile (@touchfiles) {
         if ( $touchfile =~ /^\.cp\.([^\d]+)\.(\d{4}-\d{2}-\d{2})_([^_]+)_(\d+)$/ ) {
             my ( $cptech, $date, $ipaddr, $ticket ) = ( $1, $2, $3, $4 );
             $date =~ s#-#/#g;
             $cptech = ucfirst $cptech;
-            print_critical("\t => $docdir/$touchfile");
-            print_critical("\t\t $cptech reported this server at $ipaddr as compromised on $date local server time in ticket $ticket");
+            print_critical("\tL3: $cptech reported this server at $ipaddr as compromised on $date local server time in ticket $ticket");
             if ( !grep { /^$ipaddr$/ } @{ get_local_ipaddrs_aref() } ) {
-                print_critical("\t\t NOTE: IP addr $ipaddr not found on the server!");
+                print_critical("\t \\_ NOTE: IP address $ipaddr not found on the server!");
             }
         }
     }
@@ -1433,10 +1430,13 @@ sub print_cpanel_info {
 
     my $cpanel_tier = defined $cpupdate_conf->{CPANEL} ? $cpupdate_conf->{CPANEL} : 'Unknown (could not open/read /etc/cpupdate.conf ?)';
 
-    my $ctime       = ( stat($CPANEL_VERSION_FILE) )[10];
-    my $last_update = time() - $ctime;
-    $last_update = $last_update / 86400;
-    $last_update = sprintf '%.1f', $last_update;
+    my $last_update;
+    if ( my $ctime = ( stat($CPANEL_VERSION_FILE) )[9] ) {
+        $last_update = sprintf '%.1f', ( time() - $ctime ) / 86400;
+    }
+    else {
+        $last_update = 'UNKNOWN';
+    }
 
     my $output = _get_run_var('cpanel_original_version') . ' (' . uc($cpanel_tier) . ' tier)' . " Last update: $last_update days ago";
     $output .= " [ Installed $birthday ]" if $birthday;
@@ -2594,7 +2594,7 @@ sub check_cpanelsync_exclude {
 }
 
 sub check_for_rawopts {
-    return unless i_am_one_of( 'ea4', 'ea3' );    # Check when using EA4 until it is no longer possible to revert to EA3.
+    return unless i_am('ea3') or ea3_downgrade_is_possible();
     my $rawopts_dir = '/var/cpanel/easy/apache/rawopts';
     return unless -d $rawopts_dir;
     my @dir_contents;
@@ -2610,7 +2610,7 @@ sub check_for_rawopts {
 }
 
 sub check_for_rawenv {
-    return unless i_am_one_of( 'ea4', 'ea3' );    # Check when using EA4 until it is no longer possible to revert to EA3.
+    return unless i_am('ea3') or ea3_downgrade_is_possible();
     my $rawenv_dir = '/var/cpanel/easy/apache/rawenv';
     return unless -d $rawenv_dir;
     my @dir_contents;
@@ -2626,12 +2626,12 @@ sub check_for_rawenv {
 }
 
 sub check_for_custom_opt_mods {
-    return unless i_am_one_of( 'ea4', 'ea3' );    # Check when using EA4 until it is no longer possible to revert to EA3.
+    return unless i_am('ea3') or ea3_downgrade_is_possible();
     my $custom_opt_mods;
     my $dir = '/var/cpanel/easy/apache/custom_opt_mods';
     return unless -d $dir;
 
-    my @custom_opt_mods;                          # items in /var/cpanel/easy/apache/custom_opt_mods/
+    my @custom_opt_mods;    # items in /var/cpanel/easy/apache/custom_opt_mods/
     find(
         sub {
             # ignore these, Attracta:
@@ -3204,7 +3204,7 @@ sub check_for_non_default_permissions {
             '/var/cpanel/userhomes'                       => { mode => [ '0755', '0711' ] },
             '/var/cpanel/userhomes/cpanelroundcube'       => { mode => ['0711'], user => 'cpanelroundcube', group => 'cpanelroundcube' },
             '/var/cpanel/users'                           => { mode => ['0711'] },
-            $CPANEL_CONFIG_FILE                           => { mode => ['0644'], user => 'root', group => 'root', perms_help => 'Ensure this is readable by all users or it can cause cPanel UI issues.' },
+            $CPANEL_CONFIG_FILE                           => { mode => ['0644'], user => 'root', group => '*', perms_help => 'Ensure this is readable by all users or it can cause cPanel UI issues.' },
             '/var/log/exim_mainlog'                       => { mode => ['0640'], user => 'mailnull', group => 'mail' },
             '/var/log/exim_paniclog'                      => { mode => ['0640'], user => 'mailnull', group => 'mail' },
             '/var/log/exim_rejectlog'                     => { mode => ['0640'], user => 'mailnull', group => 'mail' },
@@ -3827,7 +3827,7 @@ sub check_easyapache {
 }
 
 sub check_for_ea3_hooks {
-    return unless i_am_one_of( 'ea4', 'ea3' );                      # Run with EA4 until it is impossible to revert to EA3.
+    return unless i_am('ea3') or ea3_downgrade_is_possible();
 
     my $hooks;
 
@@ -4607,10 +4607,10 @@ sub check_for_apache_rlimits {
 }
 
 sub check_for_usr_local_lib_libz_so {
-    return unless i_am('ea3');
+    return unless i_am('ea3') or ea3_downgrade_is_possible();
     if ( -f '/usr/local/lib/libz.so' ) {
         print_warn('/usr/local/lib/libz.so: ');
-        print_warning('exists. This can prevent EA from completing');
+        print_warning('exists. This can prevent an EA3 build from completing');
     }
 }
 
@@ -4619,30 +4619,28 @@ sub check_for_non_default_modsec_rules {
     my $modules = get_apache_modules_href();
     return unless defined $modules->{'security_module'} or defined $modules->{'security2_module'};
 
-    my $modsec2_conf      = '/usr/local/apache/conf/modsec2.conf';
-    my $modsec2_user_conf = '/usr/local/apache/conf/modsec2.user.conf';
-    my $modsec_rules_dir  = '/usr/local/apache/conf/modsec_rules';
+    my $conf_prefix   = i_am('ea4') ? '/etc/apache2/conf.d/' : '/usr/local/apache/conf/';
+    my $modsec_prefix = i_am('ea4') ? 'modsec/'              : '';
+    my $modsec2_conf  = $conf_prefix . 'modsec2.conf';
+    my $modsec2_user_conf = $conf_prefix . $modsec_prefix . 'modsec2.user.conf';
+    my $modsec_rules_dir  = $conf_prefix . $modsec_prefix . 'modsec_rules';
 
-    if ( -f $modsec2_conf ) {
-        my $modsec2_conf_size     = ( stat($modsec2_conf) )[7];
-        my $modsec2_conf_max_size = 1500;
+    if ( my $modsec2_conf_size = -s $modsec2_conf ) {
+        my $modsec2_conf_max_size = 1580;
         if ( $modsec2_conf_size > $modsec2_conf_max_size ) {
-            print_warn('modsec: ');
+            print_warn('Mod Security: ');
             print_warning("$modsec2_conf is > $modsec2_conf_max_size bytes, may contain custom rules");
         }
     }
 
-    if ( -f $modsec2_user_conf ) {
-        my $modsec2_user_conf_size = ( stat($modsec2_user_conf) )[7];
-        if ( $modsec2_user_conf_size != 0 ) {
-            print_warn('modsec: ');
-            print_warning("$modsec2_user_conf is not empty, may contain rules");
-        }
+    if ( -s $modsec2_user_conf ) {
+        print_warn('Mod Security: ');
+        print_warning("$modsec2_user_conf is not empty, may contain custom rules");
     }
 
     if ( -d $modsec_rules_dir ) {
-        print_warn('modsec: ');
-        print_warning("$modsec_rules_dir exists, 3rd party rules may be in use");
+        print_warn('Mod Security: ');
+        print_warning("$modsec_rules_dir exists, 3rd-party rules may be in use");
     }
 }
 
@@ -4691,12 +4689,12 @@ sub check_etc_hosts_sanity {
 
     if ($localhost_not_127) {
         print_warn("$hosts: ");
-        print_warning('contains an entry for "localhost" that isn\'t 127.0.0.1! This can break EA and webmail logins');
+        print_warning('contains an entry for "localhost" that isn\'t 127.0.0.1! This can break EA3 or webmail logins');
     }
 
     if ( !$hostname_entry ) {
         print_warn("$hosts: ");
-        print_warning("no entry found for the server's hostname! [$hostname] (Can break EA or Apache when mod_unique_id is enabled)");
+        print_warning("no entry found for the server's hostname! [$hostname] (Can break EA3 or Apache when mod_unique_id is enabled)");
     }
 }
 
@@ -5049,7 +5047,7 @@ sub check_for_low_ulimit_for_root {
         }
 
         print_warn('ulimit: ');
-        print_warning("-m [ $ulimit_m ] -v [ $ulimit_v ] Low ulimits can cause EA to fail when run via the shell");
+        print_warning("-m [ $ulimit_m ] -v [ $ulimit_v ] Low ulimits can cause EA3 or other commands to fail when run via the shell");
     }
 }
 
@@ -5387,7 +5385,7 @@ sub check_for_zlib_h {
     return unless i_am('ea3');
     if ( -f '/usr/local/include/zlib.h' ) {
         print_warn('/usr/local/include/zlib.h: ');
-        print_warning('This file can cause EA to fail with libxml issues. You may need to mv it, run EA again');
+        print_warning('This file can cause EA3 to fail with libxml issues. You may need to mv it, run EA3 again');
     }
 }
 
@@ -5421,7 +5419,7 @@ sub check_for_percona_rpms {
         next if $rpm =~ /^percona-toolkit/i;    # Can be used with MariaDB/MySQL
         if ( $rpm =~ /^Percona/i ) {
             print_warn("Percona RPMs found:\n");
-            print_magenta("\t \\_ EA failing with \"Cannot find libmysqlclient\"? libmysqlclient.so missing? see FB-93349");
+            print_magenta("\t \\_ EA3 failing with \"Cannot find libmysqlclient\"? libmysqlclient.so missing? see FB-93349");
             print_magenta("\t \\_ If Exim is segfaulting after STARTTLS, this may be why. See ticket 3658929");
             print_magenta("\t \\_ If Apache with PHP DSO is segfaulting after restart, this may be why. See ticket 5525179");
             last;
@@ -6578,7 +6576,7 @@ sub check_for_pgpass_colon_in_password_field {
 }
 
 sub check_for_dirs_that_break_ea {
-    return unless i_am('ea3');
+    return unless i_am('ea3') or ea3_downgrade_is_possible();
     my @dirs = qw(
       /usr/local/cpanel/cgi-sys/php5
       /var/cpanel/conf/apache/wrappers/php5
@@ -6587,7 +6585,7 @@ sub check_for_dirs_that_break_ea {
     for my $dir (@dirs) {
         if ( -d $dir ) {
             print_warn("$dir: ");
-            print_warning('is a directory! This can cause EA issues. See ticket 4537779.');
+            print_warning('is a directory! This can cause EA3 issues. See ticket 4537779.');
         }
     }
 }
@@ -7357,7 +7355,7 @@ sub check_for_usr_local_mis {
     return if !-d $dir;
 
     print_3rdp("$dir: ");
-    print_3rdp2('found! This can prevent EA from completing. See ticket 4822059');
+    print_3rdp2('found! This can prevent EA3 from completing. See ticket 4822059');
 }
 
 sub check_for_opt_gsi_tools {
@@ -7399,7 +7397,7 @@ sub print_generic_hack_predef {
     print_critical();
     print_crit( '!! [ ' . $name . ' ] !! ' );
     print_critical('Escalate this ticket to L3 using "ESCALATE - Hacked Server Response for L1/L2->L3 ( All Analysts )"');
-    print_critical("\tIf the malware appears to be the direct cause of services being down, please escalate the ticket to Emergency status.");
+    print_critical("\t-- If this appears to be the direct cause of services being down, please escalate the ticket to Emergency status.");
     print_critical("\tL1/L2: LOG OUT NOW.  Do not execute any other commands unless given explicit directions by an L3 analyst or Supervisor.");
 }
 
@@ -7951,24 +7949,42 @@ sub check_sshd_config {
     # default, check_missing, and help are optional, but orig_name should be defined if check_missing is used so that the mixed-case name can be printed
     # If check_missing exists, a warning is generated if the item is NOT in sshd_conf and does not match the default (if given)
     my %checks;
+    my $add = sub {
+        my ( $name, $new_ref ) = @_;
+        $checks{$name}{'help'} = [] unless defined $checks{$name}{'help'};
+        for my $key ( keys %{$new_ref} ) {
+            if ( $key eq 'help' ) {
+                push @{ $checks{$name}{'help'} }, @{ $new_ref->{'help'} };
+                next;
+            }
+            $checks{$name}{$key} = $new_ref->{$key};
+        }
+    };
+
     if ( not -e '/etc/cphulkddisable' ) {
-        $checks{'usedns'} = { default => 'no',  check_missing => 1, orig_name => 'UseDNS', help => 'UseDNS must be explicitly disabled for cPHulk to work correctly for SSH logins' };
-        $checks{'usepam'} = { default => 'yes', check_missing => 1, orig_name => 'UsePAM', help => 'UsePAM must be explicitly enabled for cPHulk and/or CageFS to process SSH logins' };
+        $add->( 'usedns', { default => 'no',  check_missing => 1, orig_name => 'UseDNS', help => ['Must be explicitly set to "no" for cPHulk to work correctly for SSH logins'] } );
+        $add->( 'usepam', { default => 'yes', check_missing => 1, orig_name => 'UsePAM', help => ['Must be explicitly set to "yes" for cPHulk to work with SSH logins'] } );
+    }
+    if ( i_am('cloudlinux') ) {
+        $add->( 'usepam', { default => 'yes', check_missing => 1, orig_name => 'UsePAM', help => ['Must be explicitly set to "yes" for CloudLinux LVE limits or CageFS to apply to SSH sessions'] } );
     }
 
+    my $indent = 34;
     for my $lc_key ( sort( keys(%checks) ) ) {
         my $check         = $checks{$lc_key};
         my $lc_default    = defined $check->{default} ? $check->{default} : '';
         my $check_missing = defined $check->{check_missing} ? 1 : 0;
         my $missing_name  = defined $check->{orig_name} ? $check->{orig_name} : $lc_key;
-        my $help          = defined $check->{help} ? '- ' . $check->{help} : '';
+        my $help          = scalar @{ $check->{help} } ? '- ' : '';
         my ( $conf_key, $conf_value ) = defined $conf->{$lc_key} ? @{ $conf->{$lc_key} } : undef;
         my $lc_conf_value = defined $conf_value ? lc($conf_value) : undef;
         if ( defined $lc_conf_value and $lc_conf_value ne $lc_default ) {
+            $help .= join( "\n" . ' ' x ( $indent + length($conf_key) + length($conf_value) ) . '\_ - ', @{ $check->{help} } );
             print_warn( $sshd_config . ': ' );
             print_warning("[ $conf_key $conf_value ] $help");
         }
         elsif ( $check_missing and not defined $conf_value ) {
+            $help .= join( "\n" . ' ' x ( $indent + length($missing_name) + 9 ) . '\_ - ', @{ $check->{help} } );
             print_warn( $sshd_config . ': ' );
             print_warning("[ $missing_name ] not found $help");
         }
@@ -8428,6 +8444,11 @@ sub cpanel_version_is {
 sub os_version_is {
     my ( $mode, $ver ) = @_;
     return version_compare( $RUN_STATE->{var}->{os_version}, $mode, $ver );
+}
+
+sub ea3_downgrade_is_possible {
+    return 1 if cpanel_version_is(qw( < 11.77.0.0 )) and i_am('ea4');
+    return 0;
 }
 
 sub get_hostname {
