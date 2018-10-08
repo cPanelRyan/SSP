@@ -6318,6 +6318,8 @@ sub check_for_processes_killed_by_oom {
     read $file_fh, $log_data, $bytes_to_check;
     close $file_fh;
 
+    my $prefix_pattern = '^([a-zA-Z]{3} +\d{1,2} +\d{2}:\d{2}:\d{2}) (?:.*?) kernel:(?: \[ *\d*\.\d{6}\])?';
+
     if ( $log_data =~ /[Kk]illed process/ ) {
         my @logs = split /\n/, $log_data;
         undef $log_data;
@@ -6326,43 +6328,38 @@ sub check_for_processes_killed_by_oom {
         for my $line (@logs) {
 
             # CloudLinux 6 LVE OOM, Virtuozzo + CentOS 6 OOM
-            if ( $line =~ /([[:alpha:]]{3}(?: \d\d|  \d) \d\d:\d\d:\d\d) (?:.*) kernel: \[ *\d*\.\d{6}\] Out of memory in UB (\d*): OOM killed process (\d*) \((.*)\) score \d* vm:(\d*)kB, rss:(\d*)kB, swap:(\d*)kB/ ) {
+            if ( $line =~ /$prefix_pattern Out of memory in UB (\d*): OOM killed process (\d*) \(([^)]+)\) score \d* vm:(\d*)kB, rss:(\d*)kB, swap:(\d*)kB/o ) {
                 push @killed_by_oom, "[$1] [pid: $3] [cmd: $4] [LVE ID: $2] [vm: $5 kB] [rss: $6 kB] [swap: $7 kB]";
                 $count++;
                 last if $count >= 10;
             }
 
-            if ( $line =~ /([[:alpha:]]{3}(?: \d\d|  \d) \d\d:\d\d:\d\d) (?:.*?) kernel: \[ *\d*\.\d{6}\] Out of memory: OOM killed process (\d*?) \((.*?)\) score \d* vm:(\d*)kB, rss:(\d*)kB, swap:(\d*)kB/ ) {
+            if ( $line =~ /$prefix_pattern Out of memory: OOM killed process (\d*?) \(([^)]+)\) score \d* vm:(\d*)kB, rss:(\d*)kB, swap:(\d*)kB/o ) {
                 push @killed_by_oom, "[$1] [pid: $2] [cmd: $3] [vm: $4 kB] [rss: $5 kB] [swap: $6 kB]";
                 $count++;
                 last if $count >= 10;
-            }
 
-            # CentOS 6
-            if ( $line =~ /([[:alpha:]]{3}(?: \d\d|  \d) \d\d:\d\d:\d\d) (?:.*) kernel: \[ *\d*\.\d{6}\] Killed process (\d+)(?:, UID \d+,)? \((.*?)\) total-vm:(\d+)kB, anon-rss:(\d+)kB, file-rss:(\d+)kB/ ) {
-                push @killed_by_oom, "[$1] [pid: $2] [cmd: $3] [vm: $4 kB] [rss: $5 kB] [swap: $6 kB]";
-                $count++;
-                last if $count >= 10;
-            }
-
-            # CentOS 7
-            if ( $line =~ /([[:alpha:]]{3}(?: \d\d|  \d) \d\d:\d\d:\d\d) (?:.*?) kernel: Killed process (\d*) \((.*)\) total-vm:(\d*?)kB, anon-rss:(\d*?)kB, file-rss:(\d*?)kB/ ) {
-                push @killed_by_oom, "[$1] [pid: $2] [cmd: $3] [vm: $4 kB] [rss: $5 kB] [swap: $6 kB]";
-                $count++;
-                last if $count >= 10;
             }
 
             # CloudLinux 7
             # Feb  6 08:52:43 lin02 kernel: Killed process 22541 (php) in VE "0" total-vm:357304kB, anon-rss:77080kB, file-rss:11116kB
-            if ( $line =~ /([[:alpha:]]{3} (?:\d\d| \d) \d\d:\d\d:\d\d) (?:.*?) kernel: Killed process (\d*) \((.*?)\) in VE "(\d*)" total-vm:(\d*)kB, anon-rss:(\d*)kB, file-rss:(\d*)kB$/ ) {
-                push @killed_by_oom, "[$1] [pid: $2] [cmd: $3] [LVE ID: $4] [vm: $5 kB] [rss: $6 kB] [swap: $7 kB]";
+            if ( $line =~ /$prefix_pattern Killed process (\d*) \([^)]+\) in VE "(\d*)" total-vm:(\d*)kB, anon-rss:(\d*)kB, file-rss:(\d*)kB/o ) {
+                push @killed_by_oom, "[$1] [pid: $2] [cmd: $3] [LVE ID: $4] [total-vm: $5 kB] [anon-rss: $6 kB] [file-rss: $7 kB]";
+                $count++;
+                last if $count >= 10;
+            }
+
+            # CentOS 6/7
+            # Oct  8 12:51:37 whm-76-c7 kernel: Killed process 3172 (a.out) total-vm:571097852kB, anon-rss:547696kB, file-rss:4kB, shmem-rss:0kB
+            if ( $line =~ /$prefix_pattern Killed process (\d+)(?:, UID \d+,)? \(([^)]+)\) total-vm:(\d+)kB, anon-rss:(\d+)kB, file-rss:(\d+)kB/o ) {
+                push @killed_by_oom, "[$1] [pid: $2] [cmd: $3] [total-vm: $4 kB] [anon-rss: $5 kB] [file-rss: $6 kB]";
                 $count++;
                 last if $count >= 10;
             }
         }
 
         if (@killed_by_oom) {
-            print_warn("Last $count processes killed by Linux Out of memory killer (grep -i \"Out of memory\" /var/log/messages):\n");
+            print_warn("Last $count processes killed by Linux Out of memory killer (grep -i \"killed process\" /var/log/messages):\n");
             for my $killed_process (@killed_by_oom) {
                 print_magenta("\t \\_ $killed_process");
             }
