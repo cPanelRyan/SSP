@@ -5854,7 +5854,7 @@ sub check_for_disabled_services {
 
 sub get_license_info {
     return unless my $external_ip_address = get_external_ip();
-    my $path = '/?ip=' . $external_ip_address;
+    my $path = '/app/verify?ip=' . $external_ip_address;
     my $host = 'verify.cpanel.net';
     return _http_get( Host => $host, Path => $path, ReportTimeout => 1, SSL => 1, SSLLoadFailWarning => 'can\'t make HTTPS request to verify.cpanel.net' );
 }
@@ -5870,7 +5870,7 @@ sub check_for_license_info {
     my $external_license_address = get_external_license_ip();
 
     if ( defined($external_ip_address) ) {
-        my $url = '/?ip=' . $external_ip_address;
+        my $url = '/app/verify?ip=' . $external_ip_address;
         $helper_url .= $url;
         if ( my $reply = get_license_info() ) {
             if ( $reply =~ /alt="cPanel\/WHM"/ ) {
