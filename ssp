@@ -2378,7 +2378,7 @@ sub check_for_license_error {
          \QThe hostname must be a Fully Qualified Domain Name! (\E.+\)
        | \QAbort, Retry, Fail?\E
          \Z }xms
-      ) {
+    ) {
         print_warn('License Error: ');
         print_warning( '[ ' . $license_error . ' ]' );
         print_warning('         \_ If this license error is not resolved after correctly setting the hostname AND ensuring that the hostname can be pinged from the local host ( ping `hostname` ), then fork ticket for license issue if not related to current issue, send "ESCALATE - License issue to Dev" response, and escalate ticket to "QA/Development".');
@@ -2392,7 +2392,7 @@ sub check_for_license_error {
        | \QPrinting is not supported on this printer.\E
        | \QCannot issue a license to \E[^ ]+\Q without a \E(DISTRO|OSVER)\.
        \Z }xms
-      ) {
+    ) {
         print_crit('License Error: ');
         print_critical( '[ ' . $license_error . ' ]' );
         print_critical('         \_ Fork ticket for license issue if not related to current issue, send "ESCALATE - License issue to Dev" response, and escalate ticket to "QA/Development".');
@@ -3507,12 +3507,12 @@ sub check_for_non_default_sysctl {
     my $sysctl = { map { split( /\s=\s/, $_, 2 ) } split( /\n/, timed_run( 0, 'sysctl', '-a' ) ) };
 
     my %check = (    # 'sysctl_key' => [ ['default1', 'default2', ...], 'Additional info' ]
-        'fs.enforce_symlinksifowner' => [ [ '0', '1' ], ' - Invalid setting - https://docs.cloudlinux.com/index.html?symlink_owner_match_protection.html' ],
-        'fs.protected_hardlinks_create' => [ ['0'], '' ],
-        'fs.protected_symlinks_create'  => [ ['0'], ' - Not recommended. Can prevent creation of access_log symlink in user homes, or switching to a custom cPanel style that is not owned by the "linksafe" group.' ],
-        'kernel.user_ptrace'            => [ ['1'], '' ],
-        'net.ipv4.tcp_tw_recycle'       => [ ['0'], ' - This should generally never be enabled. Clients behind NAT or Proxy can have problems connecting to this server.' ],
-        'net.ipv4.tcp_tw_reuse'         => [ ['0'], ' - This should generally never be enabled. Clients behind NAT or Proxy can have problems connecting to this server.' ],
+        'fs.enforce_symlinksifowner'    => [ [ '0', '1' ], ' - Invalid setting - https://docs.cloudlinux.com/index.html?symlink_owner_match_protection.html' ],
+        'fs.protected_hardlinks_create' => [ ['0'],        '' ],
+        'fs.protected_symlinks_create'  => [ ['0'],        ' - Not recommended. Can prevent creation of access_log symlink in user homes, or switching to a custom cPanel style that is not owned by the "linksafe" group.' ],
+        'kernel.user_ptrace'            => [ ['1'],        '' ],
+        'net.ipv4.tcp_tw_recycle'       => [ ['0'],        ' - This should generally never be enabled. Clients behind NAT or Proxy can have problems connecting to this server.' ],
+        'net.ipv4.tcp_tw_reuse'         => [ ['0'],        ' - This should generally never be enabled. Clients behind NAT or Proxy can have problems connecting to this server.' ],
         'vm.overcommit_memory' => [ [ '0', '1' ], ' - Seeing "Out of memory" but there is free memory and no limits?  This might be why.' ],
     );
     if ( defined( $sysctl->{'fs.enforce_symlinksifowner'} && $sysctl->{'fs.enforce_symlinksifowner'} ) ) {
@@ -3753,7 +3753,7 @@ sub check_for_huge_logs {
         '/var/cpanel/secdatadir/ip.pag'           => { help => 'Apache using a lot of CPU for no good reason? Try moving aside and restarting Apache. See EA-4092.' },
         '/var/named/data/named.run'               => {},
         '/var/cpanel/backups/metadata.sqlite'     => { info_size => 1_000_000_000, warn_size => 10_000_000_000 },
-        '/var/cpanel/eximstats_db.sqlite3' => { warn_size => 5_000_000_000 },
+        '/var/cpanel/eximstats_db.sqlite3'        => { warn_size => 5_000_000_000 },
     );
     for my $log ( keys(%logs) ) {
         if ( -e $log ) {
@@ -4995,15 +4995,15 @@ sub check_cpanel_config {
     # If check_missing exists, a warning is generated if the item is NOT in cpanel.config and does not match the default (if given) or is empty
 
     my %cpanel_checks = (
-        'enablecompileroptimizations' => { default       => '0',                 help => 'Tweak setting "Enable optimizations for the C compiler" enabled. If Sandy Bridge CPU, problems MAY occur (see ticket 3355885)' },
+        'enablecompileroptimizations' => { default       => '0', help => 'Tweak setting "Enable optimizations for the C compiler" enabled. If Sandy Bridge CPU, problems MAY occur (see ticket 3355885)' },
         'ftpserver'                   => { check_missing => 1 },
         'mailserver'                  => { check_missing => 1 },
         'mysql-version'               => { check_missing => 1 },
-        'nativessl'                   => { default       => '1',                 help => 'Native SSL support for WHM/cPanel services is disabled' },
-        'pma_disableis'               => { default       => '0',                 help => 'Can cause various issues with phpMyAdmin displaying databases -- see CPANEL-16866, CPANEL-16867, CPANEL-18742.' },
+        'nativessl'                   => { default       => '1', help => 'Native SSL support for WHM/cPanel services is disabled' },
+        'pma_disableis'               => { default       => '0', help => 'Can cause various issues with phpMyAdmin displaying databases -- see CPANEL-16866, CPANEL-16867, CPANEL-18742.' },
         'root'                        => { default       => '/usr/local/cpanel', help => 'An invalid root setting can cause WHM to fail to start.  See ticket 5463121.' },
-        'skiphttpauth'                => { default       => '1',                 help => 'HTTP auth enabled' },
-        'skipparentcheck'             => { default       => '0',                 help => 'Allows other applications to run the cPanel and admin binaries' },
+        'skiphttpauth'                => { default       => '1', help => 'HTTP auth enabled' },
+        'skipparentcheck'             => { default       => '0', help => 'Allows other applications to run the cPanel and admin binaries' },
     );
 
     if ( defined $CPCONF{'maxmem'} && $CPCONF{'maxmem'} < 512 ) {
@@ -5565,7 +5565,7 @@ sub check_for_rpm_overrides {
                                 | d56abe76c47853eceb706f0855e642a7
                                 | eed54b4202d0b2655f37a5c1edfa0853
                                 ) \s }xms
-      ) {
+    ) {
         $easy_is_default = 1;
     }
 
@@ -5577,7 +5577,7 @@ sub check_for_rpm_overrides {
                                 | a33f5a902bbadebd7b3029e0337fde35
                                 | cf40c6ac1543464a937b8c39c4ad1da6
                                 ) \s }xms
-      ) {
+    ) {
         $cloud_is_default = 1;
     }
 
@@ -8149,7 +8149,7 @@ sub print_bug_report {
     my $cpu         = $cpuinfo->{'model'} ? $cpuinfo->{'model'} : 'Unknown';
     my $cores       = $cpuinfo->{'numcores'} ? $cpuinfo->{'numcores'} : 'Unknown';
     my $ticket      = ( defined $ENV{HISTFILE} and $ENV{HISTFILE} =~ /ticket.(\d+)$/ ) ? $1 : '';
-    print <<END_OF_TEMPLATE
+    print <<END_OF_TEMPLATE;
 ==== BEGIN COPY BELOW ====
 {panel:title=(i) Details}
 
@@ -8193,7 +8193,7 @@ sub print_doc_bug_report {
     if ( defined $ENV{HISTFILE} and $ENV{HISTFILE} =~ /ticket.(\d+)$/ ) {
         $ticket = $1;
     }
-    print <<END_OF_TEMPLATE
+    print <<END_OF_TEMPLATE;
 ==== BEGIN COPY BELOW ====
 {panel:title=(i) Document and ticket URLS}
 
