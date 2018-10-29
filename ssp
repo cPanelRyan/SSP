@@ -495,6 +495,7 @@ sub all_malware_checks {
     check_for_cpro();
     check_for_fkcplisc();
     check_for_cgls();
+    check_for_ctls();
 }
 
 sub get_phpini_aref {
@@ -1259,8 +1260,9 @@ sub print_red {
 }
 
 sub check_for_hacked_server_touchfile {
+    return unless i_am('cptech');
     my $docdir = '/usr/share/doc';
-    return if !-d $docdir;
+    return unless -d $docdir;
 
     opendir( my $fh, $docdir ) or return;
 
@@ -1286,6 +1288,7 @@ sub check_for_hacked_server_touchfile {
 }
 
 sub check_for_multiple_tech_logins {
+    return unless i_am('cptech');
 
     # Prefer 'who' over 'w' because of FROM field length limit in 'w'
     # who -H
@@ -3940,7 +3943,7 @@ sub check_mounts {
             print_warn('mounted noexec: ');
             print_warning($noexec_partition);
         }
-        if ( $mount =~ m{ \s \Q$CPANEL_LICENSE_FILE\E \s }xms ) {
+        if ( i_am('cptech') and $mount =~ m{ \s \Q$CPANEL_LICENSE_FILE\E \s }xms ) {
             print_generic_hack_predef('LICENSE');
             print_critical('The following mount entry was found:');
             print_critical( "\t" . $mount );
@@ -7834,6 +7837,7 @@ sub check_for_dirtycow_passwd {
 }
 
 sub check_for_cpro {
+    return unless i_am('cptech');
     my @paths = qw(
       /YasITCSP/
       /etc/customcspips
@@ -7890,6 +7894,7 @@ sub check_for_fkcplisc {
 }
 
 sub check_for_cgls {
+    return unless i_am('cptech');
     my @paths = qw(
       /etc/cron.d/cgls
       /usr/local/cgls
@@ -7901,6 +7906,23 @@ sub check_for_cgls {
         print_critical('The following files or directories were found:');
         print_critical( "\t" . join( " ", @bad_paths ) );
         print_critical("\tL3: See TECH-333 for reference.");
+        print_critical();
+    }
+}
+
+sub check_for_ctls {
+    return unless i_am('cptech');
+    my @paths = qw(
+      /usr/local/ctls
+      /usr/local/ctls/ctls
+    );
+
+    my @bad_paths = grep { -e $_ } @paths;
+    if (@bad_paths) {
+        print_generic_hack_predef('CTLS');
+        print_critical('The following files or directories were found:');
+        print_critical( "\t" . join( " ", @bad_paths ) );
+        print_critical("\tL3: See TECH-642 for reference.");
         print_critical();
     }
 }
@@ -8365,6 +8387,13 @@ sub _populate_run_state {    ## no critic (RequireArgUnpacking)
         _set_run_var( 'cpanel_original_version', $cp_original_version );
     }
 
+    foreach ( @ENV{ 'SSH_CLIENT', 'SSH_CONNECTION' } ) {
+        next unless defined $_;
+        next unless m{\A 208\.74\.12[0-7]}xms;
+        _set_run_type('cptech');
+        last;
+    }
+
     # Loosely based on info found in Cpanel::Sys::OS and Cpanel::Sys::GetOS.  First release file wins.
     foreach my $test_release_file ( 'CentOS-release', 'redhat-release', 'system-release' ) {
         if ( open my $fh, '<', '/etc/' . $test_release_file ) {
@@ -8403,6 +8432,7 @@ sub _init_run_state {
             cloudlinux => 1 << 5,
             kernelcare => 1 << 6,
             amazon     => 1 << 7,
+            cptech     => 1 << 8,
         },
         var => {
             cpanel_numeric_version  => "UNKNOWN",
