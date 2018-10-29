@@ -1401,6 +1401,8 @@ sub check_for_os_release_32bit {
 
 sub check_for_ea3 {
     return unless i_am('ea3');
+    my $hostinfo = get_hostinfo_href();
+    return if ( defined( $hostinfo->{'hardware'} ) && $hostinfo->{'hardware'} eq 'i386' );    # Do not report on 32-bit systems.
     print_crit('EasyApache 3: ');
     print_critical('Support is ending in 2018.');
     print_critical('         \_ Send customer this premade: "MIGRATION - EA3 EOL"');
