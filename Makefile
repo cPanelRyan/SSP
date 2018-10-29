@@ -1,10 +1,13 @@
 PROJECT=ssp
 SHELL=/bin/sh
-PATH=/usr/local/cpanel/3rdparty/perl/526/bin:/usr/local/cpanel/3rdparty/perl/524/bin:/usr/local/cpanel/3rdparty/bin:/sbin:/bin:/usr/sbin:/usr/bin
-PERLCRITIC=perlcritic
+PERL_BIN=$(shell readlink /usr/local/cpanel/3rdparty/bin/perl)
+PERL_BIN_BASE=$(shell dirname $(PERL_BIN))
+PATH=$(PERL_BIN_BASE):/usr/local/cpanel/3rdparty/bin:/sbin:/bin:/usr/sbin:/usr/bin
+PERLCRITIC=$(PERL_BIN_BASE)/perlcritic
 PERLCRITICRC=tools/.perlcriticrc
-PERLTIDY=perltidy
+PERLTIDY=$(PERL_BIN_BASE)/perltidy
 PERLTIDYRC=tools/.perltidyrc
+PERLTIDYRC_MINIFY=tools/.perltidyrc.minify
 NEW_VER=$(shell grep 'our $$VERSION' $(PROJECT) | awk '{print $$4}' | sed -e "s/'//g" -e 's/;//')
 
 .DEFAULT: help
@@ -78,3 +81,8 @@ tidy: test $(PROJECT).tdy
 			exit 2; \
 		fi; \
 	fi;
+
+## Create minified file
+$(PROJECT).min: test
+	echo "-- Running tidy minify"
+	$(PERLTIDY) --profile=$(PERLTIDYRC_MINIFY) $(PROJECT) -o $(PROJECT).min
