@@ -5283,6 +5283,9 @@ sub check_for_ea4_mismatch {
     return unless $cl_count;
     print_warn('EA4 RPMs: ');
     print_warning(qq{Found $cl_count "ea-*.cloudlinux" RPMs on a non-CloudLinux system!  Using wrong EA4 repo?});
+    if ( -e '/etc/yum.repos.d/imunify360-ea-php-hardened.repo' ) {
+        print_warning('         \_ Imunify360 Hardened EA-PHP repo found. It is probably OK if all of the RPMs originated from this repo.');
+    }
 }
 
 sub check_eximstats_size {
