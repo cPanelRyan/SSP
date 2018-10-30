@@ -259,6 +259,7 @@ sub run {
     print_mailserver_info();
     print_ftpserver_info();
     print_exim_info();
+    print_roundcube_db();
     check_for_custom_webtemplates();
     check_for_custom_restoremodules();
     check_for_custom_zonetemplates();
@@ -1967,6 +1968,13 @@ sub get_old_backup_conf_href {
     my $old = { map { ( split( /\s/, $_, 2 ) )[ 0, 1 ] } split( /\n/, readline($backupconf_fh) ) };
     close $backupconf_fh;
     return $old;
+}
+
+sub print_roundcube_db {
+    if ( $CPCONF{'roundcube_db'} eq 'mysql' ) {
+        print_info('Roundcube: ');
+        print_normal('using mysql database');
+    }
 }
 
 sub print_backups_info {
@@ -4254,6 +4262,7 @@ sub check_yum_conf {
     my $plugins_enabled;    # Default is disabled, needs to be explicitly enabled.
     my $assumeyes_enabled;
     my $remove_leaf_only_enabled;
+    my $exclude_ea;
 
     if ( !-e $yum_conf ) {
         print_warn('YUM: ');
@@ -4276,6 +4285,9 @@ sub check_yum_conf {
             }
             if (m{ \A \s* exclude .* wget }xmsi) {
                 $exclude_wget = 1;
+            }
+            if (m{ \A \s* exclude .* ea- }xmsi) {
+                $exclude_ea = 1;
             }
             if (m{ \A \s* distroverpkg \s* = \s* cloudlinux-release }xmsi) {
                 $distroverpkg_cloudlinux = 1;
@@ -4304,6 +4316,10 @@ sub check_yum_conf {
     if ($exclude_wget) {
         print_warn('YUM: ');
         print_warning( $yum_conf . ' may be excluding wget updates!' );
+    }
+    if ($exclude_ea) {
+        print_warn('YUM: ');
+        print_warning( $yum_conf . ' may be excluding ea-* updates!' );
     }
     if ($distroverpkg_cloudlinux) {
         print_warn('YUM: ');
