@@ -413,6 +413,7 @@ sub run {
     check_sshd_config();
     check_for_saltstack();
     check_for_puppet_agent();
+    check_imunify360_running();
 
     # [3RDP]
     check_smtp_processes();
@@ -5425,6 +5426,13 @@ sub check_for_percona_rpms {
             last;
         }
     }
+}
+
+sub check_imunify360_running {
+    return unless grep_process_cmd( qr{ im360: \s master }xms, 'root' );
+    print_warn("Imunify360 is running: ");
+    print_warning("Issues with installing PECL extensions or running PHP's composer? Try setting Imunify360's Proactive Defense to log mode");
+
 }
 
 sub check_if_httpdconf_ipaddrs_exist {
