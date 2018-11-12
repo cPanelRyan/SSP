@@ -2007,7 +2007,7 @@ sub get_old_backup_conf_href {
 }
 
 sub print_roundcube_db {
-    if ( $CPCONF{'roundcube_db'} eq 'mysql' ) {
+    if ( defined $CPCONF{'roundcube_db'} and $CPCONF{'roundcube_db'} eq 'mysql' ) {
         print_info('Roundcube: ');
         print_normal('using mysql database');
     }
