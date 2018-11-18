@@ -5228,6 +5228,7 @@ sub check_for_broken_rpm {
         'cpuspeed'           => { check => ['exists'], help => 'May cause yum to crash when updating kernel. Send "cpuspeed detected" predefined response.' },
         'crypto-utils'       => { check => ['exists'], help => '"certwatch" cron job can send email notices regarding expiring certificates.  See ticket 7822329.' },
         'letsencrypt-cpanel' => { check => ['exists'], help => 'Third-party FleetSSL Let\'s Encrypt plugin -- no direct support provided, use "3RDP - FleetSSL/LetsEncrypt" predef if relevant.' },
+        'bitninja'           => { check => ['exists'], help => 'May cause AutoSSL to fail.  See tickets 8352131, 10723019.' },
     );
 
     if ( i_am('ea4') ) {
