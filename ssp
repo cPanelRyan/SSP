@@ -7871,6 +7871,7 @@ sub check_for_cpro {
     my @paths = qw(
       /YasITCSP/
       /etc/customcspips
+      /opt/cpanel/csp/
       /usr/bin/clnupdate
       /usr/bin/update_clnv2
       /usr/bin/update_clnv2.lock
@@ -7887,7 +7888,6 @@ sub check_for_cpro {
       /usr/local/cpanel/license/update_cpanelv2
       /usr/local/cpanel/whostmgr/cgi/check.php
       /var/log/updatecp/
-      /opt/cpanel/csp/
     );
 
     my @bad_paths = grep { -e $_ } @paths;
