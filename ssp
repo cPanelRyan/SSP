@@ -5225,6 +5225,7 @@ sub check_for_broken_rpm {
     return unless my $rpms = get_rpm_href();
     my %check = (    # 'rpm name' => { check => ['check1', 'check2', ...], help => 'Additional info' } # Check types should be ordered by dependency, first failure skips other checks for that RPM.
         'bind-chroot'        => { check => ['exists'], help => 'Not supported -- should be removed and excluded in yum.conf. See https://documentation.cpanel.net/display/ALD/Installation+Guide+-+Customize+Your+Installation#InstallationGuide-CustomizeYourInstallation-Excludepackages' },
+        'bitninja'           => { check => ['exists'], help => 'May cause AutoSSL to fail.  See tickets 8352131, 10723019.' },
         'cpuspeed'           => { check => ['exists'], help => 'May cause yum to crash when updating kernel. Send "cpuspeed detected" predefined response.' },
         'crypto-utils'       => { check => ['exists'], help => '"certwatch" cron job can send email notices regarding expiring certificates.  See ticket 7822329.' },
         'letsencrypt-cpanel' => { check => ['exists'], help => 'Third-party FleetSSL Let\'s Encrypt plugin -- no direct support provided, use "3RDP - FleetSSL/LetsEncrypt" predef if relevant.' },
@@ -7868,8 +7869,8 @@ sub check_for_dirtycow_passwd {
 sub check_for_cpro {
     return unless i_am('cptech');
     my @paths = qw(
-      /YasITCSP/
       /etc/customcspips
+      /opt/cpanel/csp/
       /usr/bin/clnupdate
       /usr/bin/update_clnv2
       /usr/bin/update_clnv2.lock
@@ -7886,6 +7887,7 @@ sub check_for_cpro {
       /usr/local/cpanel/license/update_cpanelv2
       /usr/local/cpanel/whostmgr/cgi/check.php
       /var/log/updatecp/
+      /YasITCSP/
     );
 
     my @bad_paths = grep { -e $_ } @paths;
