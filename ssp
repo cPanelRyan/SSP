@@ -8416,11 +8416,19 @@ sub _populate_run_state {    ## no critic (RequireArgUnpacking)
         _set_run_var( 'cpanel_original_version', $cp_original_version );
     }
 
-    foreach ( @ENV{ 'SSH_CLIENT', 'SSH_CONNECTION' } ) {
-        next unless defined $_;
-        next unless m{\A 208\.74\.12[0-7]}xms;
+    if ( exists $ENV{'PACHA_AUTOFIXER'} ) {
         _set_run_type('cptech');
-        last;
+    }
+    elsif ( defined $ENV{'HISTFILE'} and index( $ENV{'HISTFILE'}, 'cpanel_ticket' ) != -1 ) {
+        _set_run_type('cptech');
+    }
+    else {
+        foreach ( @ENV{ 'SSH_CLIENT', 'SSH_CONNECTION' } ) {
+            next unless defined $_;
+            next unless m{\A 208\.74\.12[0-7]}xms;
+            _set_run_type('cptech');
+            last;
+        }
     }
 
     # Loosely based on info found in Cpanel::Sys::OS and Cpanel::Sys::GetOS.  First release file wins.
