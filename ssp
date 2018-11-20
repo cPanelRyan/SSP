@@ -7869,7 +7869,6 @@ sub check_for_dirtycow_passwd {
 sub check_for_cpro {
     return unless i_am('cptech');
     my @paths = qw(
-      /YasITCSP/
       /etc/customcspips
       /opt/cpanel/csp/
       /usr/bin/clnupdate
@@ -7888,6 +7887,7 @@ sub check_for_cpro {
       /usr/local/cpanel/license/update_cpanelv2
       /usr/local/cpanel/whostmgr/cgi/check.php
       /var/log/updatecp/
+      /YasITCSP/
     );
 
     my @bad_paths = grep { -e $_ } @paths;
