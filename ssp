@@ -343,6 +343,7 @@ sub run {
     check_for_fork_bomb_protection();
     check_for_harmful_php_mode_600_cron();
     check_for_custom_exim_conf_local();
+    check_skipsmtpcheckhosts_for_license_ip();
     check_for_maxclients_or_maxrequestworkers_reached();
     check_for_non_default_umask();
     check_for_multiple_imagemagick_installs();
@@ -5132,6 +5133,25 @@ sub check_for_custom_exim_conf_local {
         print_warn('Exim: ');
         print_warning("$exim_conf_local contains customizations");
     }
+}
+
+sub check_skipsmtpcheckhosts_for_license_ip {
+    return unless my $external_ip_address = get_external_ip();
+    my $skipsmtpcheckhosts = '/etc/skipsmtpcheckhosts';
+
+    if ( open my $file_fh, '<', $skipsmtpcheckhosts ) {
+        while ( my $line = <$file_fh> ) {
+            chomp $line;
+            if ( $line eq $external_ip_address ) {
+                print_warn('Exim: ');
+                print_warning("$skipsmtpcheckhosts contains the external IP ($external_ip_address) - possible open relay");
+                last;
+            }
+        }
+    }
+    close $file_fh;
+
+    return;
 }
 
 sub check_for_maxclients_or_maxrequestworkers_reached {
