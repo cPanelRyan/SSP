@@ -7944,7 +7944,6 @@ sub check_for_yoncu {
         print_critical( "\t" . join( " ", @bad_paths ) );
         print_critical("\tL3: See TECH-657 for reference.");
         print_critical();
-        return;
     }
 
     if ( -T '/usr/local/cpanel/cpkeyclt' ) {
