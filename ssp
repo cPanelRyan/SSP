@@ -7967,7 +7967,7 @@ sub check_for_yoncu {
         return;
     }
 
-    if ( -T '/usr/local/cpanel/cpkeyclt') {
+    if ( -T '/usr/local/cpanel/cpkeyclt' ) {
         print_generic_hack_predef('YONCU');
         print_critical("\t/usr/local/cpanel/cpkeyclt was found to be a text file");
         print_critical("\tL3: See TECH-657 for reference.");
