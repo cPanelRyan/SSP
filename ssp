@@ -7929,8 +7929,6 @@ sub check_for_fkcplisc {
 sub check_for_yoncu {
     return unless i_am('cptech');
 
-    my $yoncu = 0;
-
     my @paths = qw(
       /usr/bin/chattrx
       /usr/local/cpanel/cpkeyclt.yedek
@@ -7938,17 +7936,17 @@ sub check_for_yoncu {
 
     my @bad_paths = grep { -e $_ } @paths;
     if (@bad_paths) {
-        $yoncu = 1;
-    }
-
-    if ( -T '/usr/local/cpanel/cpkeyclt') {
-        $yoncu = 1;
-    }
-
-    if ($yoncu == 1) {
         print_generic_hack_predef('YONCU');
         print_critical('The following files or directories were found:');
         print_critical( "\t" . join( " ", @bad_paths ) );
+        print_critical("\tL3: See TECH-657 for reference.");
+        print_critical();
+        return;
+    }
+
+    if ( -T '/usr/local/cpanel/cpkeyclt') {
+        print_generic_hack_predef('YONCU');
+        print_critical("\t/usr/local/cpanel/cpkeyclt was found to be a text file");
         print_critical("\tL3: See TECH-657 for reference.");
         print_critical();
     }
