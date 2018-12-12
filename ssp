@@ -496,6 +496,7 @@ sub all_malware_checks {
     check_for_dirtycow_passwd();
     check_for_cpro();
     check_for_fkcplisc();
+    check_for_yoncu();
     check_for_cgls();
     check_for_ctls();
 }
@@ -7901,6 +7902,7 @@ sub check_for_cpro {
 }
 
 sub check_for_fkcplisc {
+    return unless i_am('cptech');
     my @paths = qw(
       /bin/cplicense
       /bin/cplicense-32bit
@@ -7922,6 +7924,36 @@ sub check_for_fkcplisc {
         print_critical("\tL3: See TECH-269 and TECH-318 for reference.");
         print_critical();
     }
+}
+
+sub check_for_yoncu {
+    return unless i_am('cptech');
+
+    my $yoncu = 0;
+
+    my @paths = qw(
+      /usr/bin/chattrx
+      /usr/local/cpanel/cpkeyclt.yedek
+    );
+
+    my @bad_paths = grep { -e $_ } @paths;
+    if (@bad_paths) {
+        $yoncu = 1;
+    }
+
+    if ( -T '/usr/local/cpanel/cpkeyclt') {
+        $yoncu = 1;
+    }
+
+    if ($yoncu == 1) {
+        print_generic_hack_predef('YONCU');
+        print_critical('The following files or directories were found:');
+        print_critical( "\t" . join( " ", @bad_paths ) );
+        print_critical("\tL3: See TECH-657 for reference.");
+        print_critical();
+    }
+
+    return;
 }
 
 sub check_for_cgls {
