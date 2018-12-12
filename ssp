@@ -5669,10 +5669,13 @@ sub check_for_rpm_overrides {
 
     my $ignore = {
         'target_settings' => {
+            'analog'       => '(?:un)?installed',
+            'awstats'      => '(?:un)?installed',
             'clamav'       => '(?:un)?installed',
             'easy-icu'     => '(?:un)?installed',
             'easy-tomcat7' => '(?:un)?installed',
             'munin'        => '(?:un)?installed',
+            'webalizer'    => '(?:un)?installed',
         },
     };
     if ( i_am('dnsonly') ) {
