@@ -33,7 +33,7 @@ use IPC::Open3;
 use Cwd qw(abs_path);
 use Getopt::Long();
 
-# Application version (IMPORTANT! Increment this before submitting a pull request)
+# Application version (The project maintainer will bump this, don't modify it.)
 our $VERSION = '4.99.198';
 
 # Global variables that alter application runtime
