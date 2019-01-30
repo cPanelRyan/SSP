@@ -8264,16 +8264,17 @@ sub _month_to_num {
 }
 
 sub print_bug_report {
-    my $hostinfo    = get_hostinfo_href();
-    my $cpuinfo     = get_cpuinfo_href();
-    my $version     = _get_run_var('cpanel_original_version');
-    my $os          = _get_run_var('os_release');
-    my $kernel      = $hostinfo->{'kernel'} ? $hostinfo->{'kernel'} : 'Unknown';
-    my $arch        = $hostinfo->{'hardware'} ? $hostinfo->{'hardware'} : 'Unknown';
-    my $environment = $hostinfo->{'environment'} ? $hostinfo->{'environment'} : 'Unknown';
-    my $cpu         = $cpuinfo->{'model'} ? $cpuinfo->{'model'} : 'Unknown';
-    my $cores       = $cpuinfo->{'numcores'} ? $cpuinfo->{'numcores'} : 'Unknown';
-    my $ticket      = ( defined $ENV{HISTFILE} and $ENV{HISTFILE} =~ /ticket.(\d+)$/ ) ? $1 : '';
+    my $mysql_full_version = get_mysql_full_version();
+    my $hostinfo           = get_hostinfo_href();
+    my $cpuinfo            = get_cpuinfo_href();
+    my $version            = _get_run_var('cpanel_original_version');
+    my $os                 = _get_run_var('os_release');
+    my $kernel             = $hostinfo->{'kernel'} ? $hostinfo->{'kernel'} : 'Unknown';
+    my $arch               = $hostinfo->{'hardware'} ? $hostinfo->{'hardware'} : 'Unknown';
+    my $environment        = $hostinfo->{'environment'} ? $hostinfo->{'environment'} : 'Unknown';
+    my $cpu                = $cpuinfo->{'model'} ? $cpuinfo->{'model'} : 'Unknown';
+    my $cores              = $cpuinfo->{'numcores'} ? $cpuinfo->{'numcores'} : 'Unknown';
+    my $ticket             = ( defined $ENV{HISTFILE} and $ENV{HISTFILE} =~ /ticket.(\d+)$/ ) ? $1 : '';
     print <<END_OF_TEMPLATE;
 ==== BEGIN COPY BELOW ====
 {panel:title=(i) Details}
@@ -8308,6 +8309,7 @@ Kernel: $kernel
 Arch: $arch
 Environment: $environment
 CPU: $cpu w/ $cores core(s)
+MySQL: $mysql_full_version
 
 END_OF_TEMPLATE
 }
