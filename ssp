@@ -5689,13 +5689,21 @@ sub check_for_rpm_overrides {
         },
     };
     if ( i_am('dnsonly') ) {
-        $ignore->{'target_settings'}->{'mailman'} = 'uninstalled';
+        $ignore->{'target_settings'}->{'composer'}            = 'uninstalled';
+        $ignore->{'target_settings'}->{'cpanel-squirrelmail'} = 'uninstalled';
+        $ignore->{'target_settings'}->{'mailman'}             = 'uninstalled';
+        $ignore->{'target_settings'}->{'proftpd'}             = 'uninstalled';
+        $ignore->{'target_settings'}->{'pure-ftpd'}           = 'uninstalled';
+        $ignore->{'target_settings'}->{'roundcube'}           = 'uninstalled';
     }
     if ( cpanel_version_is(qw( >= 11.61.0.0 )) ) {
         $ignore->{'target_settings'}->{'perl522'} = 'uninstalled';    # Normal for WHM 62 upgrade process
     }
     if ( cpanel_version_is(qw( >= 11.69.0.0 )) ) {
         $ignore->{'target_settings'}->{'perl524'} = 'uninstalled';    # Normal for WHM 70 upgrade process
+    }
+    if ( cpanel_version_is(qw( >= 11.77.0.0 )) ) {
+        $ignore->{'target_settings'}->{'perl526'} = 'uninstalled';    # Normal for WHM 78 upgrade process
     }
 
     my $ref;
