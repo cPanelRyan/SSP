@@ -3310,6 +3310,7 @@ sub check_for_non_default_permissions {
         $check{'/var/tmp'} = { mode => ['1777'] };
     }
 
+    # Add defined homedir to the checklist
     my $wwwacctconf = '/etc/wwwacct.conf';
     if ( open my $wwwacctconf_fh, '<', $wwwacctconf ) {
         while (<$wwwacctconf_fh>) {
@@ -3359,6 +3360,11 @@ sub check_for_non_default_permissions {
         }
     }
 
+    if ( cpanel_version_is(qw( >= 11.77.0.0 )) ) {
+        $check{'/etc/exim.conf.localopts'} = { mode => ['0644'], perms_help => 'If users can\'t read this file it can affect the Email Deliverability feature.' };
+    }
+
+    # Add configured backup path(s) to the checklist
     my $new_backup_conf = get_new_backup_conf_href();
     my $old_backup_conf = get_old_backup_conf_href();
     my @backupdirs;
@@ -3378,6 +3384,7 @@ sub check_for_non_default_permissions {
         }
     }
 
+    # Process the checklist
     for my $path ( sort keys %check ) {
         my ( $mode, $uid, $gid ) = ( lstat($path) )[ 2, 4, 5 ];    # _ can now be used in place of $path for -d, -e, -f, -l, etc...
         if ( exists $check{$path}->{check_missing} ) {
