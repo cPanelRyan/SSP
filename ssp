@@ -307,6 +307,7 @@ sub run {
     check_for_gdm();
     check_for_redhat_firewall();
     check_easyapache();
+    check_for_missing_ea3_php();
     check_for_ea3_hooks();
     check_for_unsupported_nat();
     check_for_oracle_linux();
@@ -1736,7 +1737,6 @@ sub print_apache_info {
 sub get_ea3_php_conf_href {
     return unless i_am('ea3');
     my $phpconf = '/usr/local/apache/conf/php.conf.yaml';
-    return unless -f $phpconf;
     my %conf;
     if ( open( my $phpconf_fh, '<', $phpconf ) ) {
         while (<$phpconf_fh>) {
@@ -1756,23 +1756,26 @@ sub get_ea3_php_conf_href {
         }
         close $phpconf_fh;
     }
-    if ( -x '/usr/bin/php' ) {
-        my @php_5_v = split /\n/, timed_run( 0, '/usr/bin/php', '-n', '-v' );
-        if ( @php_5_v && $php_5_v[0] =~ /^PHP\s(\S+)\s(\S+)/ ) {
-            $conf{'php5version'} = $1;
-        }
-        else {
-            $conf{'php5version'} = '(version unknown)';
-        }
+    else {
+        $conf{'php_conf_yaml_missing'} = 1;
     }
-    if ( -x '/usr/local/php4/bin/php' ) {
-        my @php_4_v = split /\n/, timed_run( 0, '/usr/local/php4/bin/php', '-v' );
-        if ( @php_4_v && $php_4_v[0] =~ /^PHP\s(\S+)\s(\S+)/ ) {
-            $conf{'php4version'} = $1;
-        }
-        else {
-            $conf{'php4version'} = '(version unknown)';
-        }
+    my @php_5_v = split /\n/, timed_run( 0, '/usr/bin/php', '-n', '-v' );
+    if ( @php_5_v && $php_5_v[0] =~ /^PHP\s(\S+)\s(\S+)/ ) {
+        $conf{'php5version'}       = $1;
+        $conf{'php5version_valid'} = 1;
+    }
+    else {
+        $conf{'php5version'}       = '(version unknown)';
+        $conf{'php5version_valid'} = 0;
+    }
+    my @php_4_v = split /\n/, timed_run( 0, '/usr/local/php4/bin/php', '-v' );
+    if ( @php_4_v && $php_4_v[0] =~ /^PHP\s(\S+)\s(\S+)/ ) {
+        $conf{'php4version'}       = $1;
+        $conf{'php4version_valid'} = 1;
+    }
+    else {
+        $conf{'php4version'}       = '(version unknown)';
+        $conf{'php4version_valid'} = 0;
     }
     return \%conf;
 }
@@ -1780,10 +1783,9 @@ sub get_ea3_php_conf_href {
 sub print_ea3_php_configuration {
     return unless i_am('ea3');
     my $conf = get_ea3_php_conf_href();
-    unless ( defined $conf ) {
+    unless ( defined $conf && !exists $conf->{'php_conf_yaml_missing'} && exists $conf->{'phpversion'} ) {
         print_info('PHP: ');
-        print_warning('/usr/local/apache/conf/php.conf.yaml missing.  PHP checks will be skipped.');
-        return;
+        print_warning('/usr/local/apache/conf/php.conf.yaml missing or incomplete.  Some PHP checks may be skipped.');
     }
 
     my $has_ea3_suexec = $conf->{'suexec'} ? 'with suexec' : 'without suexec';
@@ -3871,6 +3873,13 @@ sub check_easyapache {
         print_warn('Apache: ');
         print_warning("$apache_update_no_restart exists and EA3 does not appear to be running! This will prevent Apache restarts in some situations.");
     }
+}
+
+sub check_for_missing_ea3_php {
+    return unless my $php = get_ea3_php_conf_href();
+    return if $php->{'php5version_valid'};
+    print_warn('EA3 to EA4 Migration: ');
+    print_warning('\'/usr/bin/php -n -v\' did not return an expected version.  This will prevent PHP from being detected during an EA3 to EA4 migration. See EA-8109.');
 }
 
 sub check_for_ea3_hooks {
