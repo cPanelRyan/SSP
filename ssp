@@ -34,7 +34,7 @@ use Cwd qw(abs_path);
 use Getopt::Long();
 
 # Application version (The project maintainer will bump this, don't modify it.)
-our $VERSION = '4.99.198';
+our $VERSION = '4.99.199';
 
 # Global variables that alter application runtime
 our $OPT_SKIP_NETWORKING;    # Disable network calls
@@ -307,6 +307,7 @@ sub run {
     check_for_gdm();
     check_for_redhat_firewall();
     check_easyapache();
+    check_for_missing_ea3_php();
     check_for_ea3_hooks();
     check_for_unsupported_nat();
     check_for_oracle_linux();
@@ -1736,7 +1737,6 @@ sub print_apache_info {
 sub get_ea3_php_conf_href {
     return unless i_am('ea3');
     my $phpconf = '/usr/local/apache/conf/php.conf.yaml';
-    return unless -f $phpconf;
     my %conf;
     if ( open( my $phpconf_fh, '<', $phpconf ) ) {
         while (<$phpconf_fh>) {
@@ -1756,23 +1756,26 @@ sub get_ea3_php_conf_href {
         }
         close $phpconf_fh;
     }
-    if ( -x '/usr/bin/php' ) {
-        my @php_5_v = split /\n/, timed_run( 0, '/usr/bin/php', '-n', '-v' );
-        if ( @php_5_v && $php_5_v[0] =~ /^PHP\s(\S+)\s(\S+)/ ) {
-            $conf{'php5version'} = $1;
-        }
-        else {
-            $conf{'php5version'} = '(version unknown)';
-        }
+    else {
+        $conf{'php_conf_yaml_missing'} = 1;
     }
-    if ( -x '/usr/local/php4/bin/php' ) {
-        my @php_4_v = split /\n/, timed_run( 0, '/usr/local/php4/bin/php', '-v' );
-        if ( @php_4_v && $php_4_v[0] =~ /^PHP\s(\S+)\s(\S+)/ ) {
-            $conf{'php4version'} = $1;
-        }
-        else {
-            $conf{'php4version'} = '(version unknown)';
-        }
+    my @php_5_v = split /\n/, timed_run( 0, '/usr/bin/php', '-n', '-v' );
+    if ( @php_5_v && $php_5_v[0] =~ /^PHP\s(\S+)\s(\S+)/ ) {
+        $conf{'php5version'}       = $1;
+        $conf{'php5version_valid'} = 1;
+    }
+    else {
+        $conf{'php5version'}       = '(version unknown)';
+        $conf{'php5version_valid'} = 0;
+    }
+    my @php_4_v = split /\n/, timed_run( 0, '/usr/local/php4/bin/php', '-v' );
+    if ( @php_4_v && $php_4_v[0] =~ /^PHP\s(\S+)\s(\S+)/ ) {
+        $conf{'php4version'}       = $1;
+        $conf{'php4version_valid'} = 1;
+    }
+    else {
+        $conf{'php4version'}       = '(version unknown)';
+        $conf{'php4version_valid'} = 0;
     }
     return \%conf;
 }
@@ -1780,10 +1783,9 @@ sub get_ea3_php_conf_href {
 sub print_ea3_php_configuration {
     return unless i_am('ea3');
     my $conf = get_ea3_php_conf_href();
-    unless ( defined $conf ) {
+    unless ( defined $conf && !exists $conf->{'php_conf_yaml_missing'} && exists $conf->{'phpversion'} ) {
         print_info('PHP: ');
-        print_warning('/usr/local/apache/conf/php.conf.yaml missing.  PHP checks will be skipped.');
-        return;
+        print_warning('/usr/local/apache/conf/php.conf.yaml missing or incomplete.  Some PHP checks may be skipped.');
     }
 
     my $has_ea3_suexec = $conf->{'suexec'} ? 'with suexec' : 'without suexec';
@@ -3267,8 +3269,9 @@ sub check_for_non_default_permissions {
         $check{'/etc/apache2/conf.d'}               = { mode    => ['0755'] };
         $check{'/etc/apache2/conf.modules.d'}       = { mode    => ['0755'] };
         $check{'/etc/apache2/logs'}                 = { symlink => '/var/log/apache2', check_missing => 1 };
-        $check{'/etc/apache2/logs/error_log'}       = { mode    => ['0644'], user => '*', perms_help => 'If users can\'t read error_log, cPanel Errors (Last 300) won\'t work.' };
         $check{'/etc/apache2/logs/domlogs'}         = { mode    => [ '0711', '0755' ], perms_help => 'If users can\'t access logs, stats won\'t process.  See ticket 5413079.' };
+        $check{'/etc/apache2/logs/error_log'}       = { mode    => ['0644'], user => '*', perms_help => 'If users can\'t read error_log, cPanel Errors (Last 300) won\'t work.' };
+        $check{'/etc/apache2/logs/suexec_log'}      = { mode    => ['0644'], user => '*', perms_help => 'If users can\'t read suexec_log, cPanel Errors (Last 300) won\'t work.' };
         $check{'/etc/apache2/run'}                  = { symlink => '../../var/run/apache2', symlink_no_absolute => 1, check_missing => 1 };
         $check{'/etc/cpanel'}                       = { mode    => [ '0755', '0751', '0711' ], perms_help => 'Users need execute permission for this directory to use cPanel MultiPHP.  See CPANEL-905.' };
         $check{'/etc/cpanel/ea4'}                   = { mode    => ['0755'], perms_help => 'Users need read/execute permission for this directory to use cPanel MultiPHP.  See CPANEL-905.' };
@@ -3307,6 +3310,7 @@ sub check_for_non_default_permissions {
         $check{'/var/tmp'} = { mode => ['1777'] };
     }
 
+    # Add defined homedir to the checklist
     my $wwwacctconf = '/etc/wwwacct.conf';
     if ( open my $wwwacctconf_fh, '<', $wwwacctconf ) {
         while (<$wwwacctconf_fh>) {
@@ -3356,6 +3360,11 @@ sub check_for_non_default_permissions {
         }
     }
 
+    if ( cpanel_version_is(qw( >= 11.77.0.0 )) ) {
+        $check{'/etc/exim.conf.localopts'} = { mode => ['0644'], perms_help => 'If users can\'t read this file it can affect the Email Deliverability feature.' };
+    }
+
+    # Add configured backup path(s) to the checklist
     my $new_backup_conf = get_new_backup_conf_href();
     my $old_backup_conf = get_old_backup_conf_href();
     my @backupdirs;
@@ -3375,6 +3384,7 @@ sub check_for_non_default_permissions {
         }
     }
 
+    # Process the checklist
     for my $path ( sort keys %check ) {
         my ( $mode, $uid, $gid ) = ( lstat($path) )[ 2, 4, 5 ];    # _ can now be used in place of $path for -d, -e, -f, -l, etc...
         if ( exists $check{$path}->{check_missing} ) {
@@ -3870,6 +3880,13 @@ sub check_easyapache {
         print_warn('Apache: ');
         print_warning("$apache_update_no_restart exists and EA3 does not appear to be running! This will prevent Apache restarts in some situations.");
     }
+}
+
+sub check_for_missing_ea3_php {
+    return unless my $php = get_ea3_php_conf_href();
+    return if $php->{'php5version_valid'};
+    print_warn('EA3 to EA4 Migration: ');
+    print_warning('\'/usr/bin/php -n -v\' did not return an expected version.  This will prevent PHP from being detected during an EA3 to EA4 migration. See EA-8109.');
 }
 
 sub check_for_ea3_hooks {
@@ -5679,13 +5696,21 @@ sub check_for_rpm_overrides {
         },
     };
     if ( i_am('dnsonly') ) {
-        $ignore->{'target_settings'}->{'mailman'} = 'uninstalled';
+        $ignore->{'target_settings'}->{'composer'}            = 'uninstalled';
+        $ignore->{'target_settings'}->{'cpanel-squirrelmail'} = 'uninstalled';
+        $ignore->{'target_settings'}->{'mailman'}             = 'uninstalled';
+        $ignore->{'target_settings'}->{'proftpd'}             = 'uninstalled';
+        $ignore->{'target_settings'}->{'pure-ftpd'}           = 'uninstalled';
+        $ignore->{'target_settings'}->{'roundcube'}           = 'uninstalled';
     }
     if ( cpanel_version_is(qw( >= 11.61.0.0 )) ) {
         $ignore->{'target_settings'}->{'perl522'} = 'uninstalled';    # Normal for WHM 62 upgrade process
     }
     if ( cpanel_version_is(qw( >= 11.69.0.0 )) ) {
         $ignore->{'target_settings'}->{'perl524'} = 'uninstalled';    # Normal for WHM 70 upgrade process
+    }
+    if ( cpanel_version_is(qw( >= 11.77.0.0 )) ) {
+        $ignore->{'target_settings'}->{'perl526'} = 'uninstalled';    # Normal for WHM 78 upgrade process
     }
 
     my $ref;
@@ -8176,8 +8201,10 @@ sub _http_get {
     );
     my $try = 0;
     my $reply;
+    my $scheme;
     die unless defined $opts{Host};
     if ( $opts{SSL} ) {
+        $scheme = 'https://';
         return unless load_module_with_fallbacks(
             'needed_subs'  => [qw(start_SSL import)],
             'modules'      => [qw(IO::Socket::SSL)],
@@ -8187,6 +8214,7 @@ sub _http_get {
         $opts{Timeout} = 3   if not defined $opts{Timeout};
     }
     else {
+        $scheme = 'http://';
         $opts{Port}    = 80 if not defined $opts{Port};
         $opts{Timeout} = 2  if not defined $opts{Timeout};
     }
@@ -8232,7 +8260,7 @@ sub _http_get {
             alarm 0;
         };
         if ( $@ eq "alarm\n" && $opts{ReportTimeout} ) {
-            print_warn( $opts{ReportTimeoutHeader} . 'Request for http://' . $opts{Host} . ':' . $opts{Port} . $opts{Path} . ' timed out' );
+            print_warn( $opts{ReportTimeoutHeader} . 'Request for ' . $scheme . $opts{Host} . ':' . $opts{Port} . $opts{Path} . ' timed out' );
             print_warning( ( $opts{Tries} > 1 ) ? ': attempt ' . $try . ' of ' . $opts{Tries} : '' );
             print RESET;
             next;

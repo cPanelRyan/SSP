@@ -9,3 +9,14 @@ lines = 30
 
 [-Subroutines::RequireFinalReturn]
 # SSP uses a large number of subs that do not need an explicit return because their return value is not used.
+
+
+# WHM 78 and newer have the following non-core perlcritic modules installed, and perlcritic without them it will complain that the policy is not installed:
+# https://github.com/Perl-Critic/Perl-Critic/issues/670
+# Ignore the complaint because we're just disabling the modules anyway.
+
+[-Modules::RequireExplicitInclusion]
+# SSP makes efforts to include and use some modules that may or may not exist on a system, so they don't get imported in the usual way
+
+[-Subroutines::ProhibitCallsToUndeclaredSubs]
+# SSP makes efforts to include and use some modules that may or may not exist on a system, so they don't get imported in the usual way
