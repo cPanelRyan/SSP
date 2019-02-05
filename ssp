@@ -8186,8 +8186,10 @@ sub _http_get {
     );
     my $try = 0;
     my $reply;
+    my $scheme;
     die unless defined $opts{Host};
     if ( $opts{SSL} ) {
+        $scheme = 'https://';
         return unless load_module_with_fallbacks(
             'needed_subs'  => [qw(start_SSL import)],
             'modules'      => [qw(IO::Socket::SSL)],
@@ -8197,6 +8199,7 @@ sub _http_get {
         $opts{Timeout} = 3   if not defined $opts{Timeout};
     }
     else {
+        $scheme = 'http://';
         $opts{Port}    = 80 if not defined $opts{Port};
         $opts{Timeout} = 2  if not defined $opts{Timeout};
     }
@@ -8242,7 +8245,7 @@ sub _http_get {
             alarm 0;
         };
         if ( $@ eq "alarm\n" && $opts{ReportTimeout} ) {
-            print_warn( $opts{ReportTimeoutHeader} . 'Request for http://' . $opts{Host} . ':' . $opts{Port} . $opts{Path} . ' timed out' );
+            print_warn( $opts{ReportTimeoutHeader} . 'Request for ' . $scheme . $opts{Host} . ':' . $opts{Port} . $opts{Path} . ' timed out' );
             print_warning( ( $opts{Tries} > 1 ) ? ': attempt ' . $try . ' of ' . $opts{Tries} : '' );
             print RESET;
             next;
