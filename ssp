@@ -3395,6 +3395,15 @@ sub check_for_non_default_permissions {
             }
             if ( $symlink || !-e _ ) {
                 $perms_help = exists $check{$path}->{perms_help} ? ' - ' . $check{$path}->{perms_help} : '';
+                if ( -d _ ) {
+                    $perms_help .= " - $path currently exists as a directory. Can cause RPM installation to fail.  See EA-7912.";
+                }
+                elsif ( -f _ ) {
+                    $perms_help .= " - $path currently exists as a file. Can cause RPM installation to fail.  See EA-7912.";
+                }
+                elsif ( -e _ ) {
+                    $perms_help .= " - $path currently exists. Can cause RPM installation to fail.  See EA-7912.";
+                }
                 print_warn('Missing: ');
                 print_warning( $path . $symlink . $perms_help );
             }
