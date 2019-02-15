@@ -3016,8 +3016,8 @@ sub check_apache_modules {
         }
     }
     if ( defined $installed_modules->{'security_module'} or defined $installed_modules->{'security2_module'} ) {
-        $add->( 'mpm_itk_module', 'Incompatible with ModSecurity SecDataDir (collections) until EA-4093 is resolved.' );
-        $add->( 'ruid2_module',   'Incompatible with ModSecurity SecDataDir (collections) until EA-4093 is resolved.' );
+        $add->( 'mpm_itk_module', 'Incompatible with ModSecurity SecDataDir (collections). See case EA-4093.' );
+        $add->( 'ruid2_module',   'Incompatible with ModSecurity SecDataDir (collections). See case EA-4093.' );
     }
     if ( defined $CPCONF{'jailapache'} && $CPCONF{'jailapache'} == 1 ) {
         $add->( 'ruid2_module', 'Enabled with Jail Apache Virtual Hosts tweak. This can break some Mailman URLs. See CPANEL-9501 and CPANEL-18127.' );
