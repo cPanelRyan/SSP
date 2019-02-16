@@ -8010,7 +8010,7 @@ sub check_for_yoncu {
         $bad_paths_found = 1;
     }
 
-    if ( -T '/usr/local/cpanel/cpkeyclt' ) {
+    if ( -s '/usr/local/cpanel/cpkeyclt' && -T _ ) {
         $bad_cpkeyclt_found = 1;
     }
 
