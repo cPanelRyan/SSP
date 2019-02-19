@@ -7901,12 +7901,20 @@ sub check_for_cpro {
       /etc/customcspips
       /opt/cpanel/csp/
       /usr/bin/clnupdate
+      /usr/bin/checkstatus
+      /usr/bin/cspdaemon
       /usr/bin/update_clnv2
       /usr/bin/update_clnv2.lock
+      /usr/bin/update_cloudv2
+      /usr/bin/update_cloudv2.lock
       /usr/bin/update_cpanelv2
       /usr/bin/update_cpanelv2.lock
       /usr/bin/update_cpanelv3
       /usr/bin/update_cpanelv3.lock
+      /usr/bin/update_jetbackup
+      /usr/bin/update_jetbackup.lock
+      /usr/bin/update_lswsv2
+      /usr/bin/update_lswsv2.lock
       /usr/bin/yasin
       /usr/local/cpanel/bin/cspconnector
       /usr/local/cpanel/bin/sendmail.txt
@@ -7916,15 +7924,22 @@ sub check_for_cpro {
       /usr/local/cpanel/license/update_cpanelv2
       /usr/local/cpanel/whostmgr/cgi/check.php
       /var/log/updatecp/
+      /var/run/cspdaemon.lock
       /YasITCSP/
     );
 
-    my @bad_paths = grep { -e $_ } @paths;
-    if (@bad_paths) {
+    if ( my @bad_paths = grep { -e $_ } @paths ) {
         print_generic_hack_predef('C.PRO');
         print_critical('The following files or directories were found:');
         print_critical( "\t" . join( " ", @bad_paths ) );
         print_critical("\tL3: See ticket 7790559 for reference.");
+        print_critical();
+    }
+    if ( my %procs = grep_process_cmd( '^(cspdaemon|checkstatus)$', 'root' ) ) {
+        print_generic_hack_predef('C.PRO');
+        print_critical('The following suspicious running processes were found (please verify):');
+        print_critical( "\t\\_ " . join( "\n\t\\_ ", map { my ( $u, $c, $a ) = @{ $procs{$_} }{ 'USER', 'COMM', 'ARGS' }; "[pid: $_] [user: $u] [cmd: $c] [args: $a]" } keys %procs ) );
+        print_critical("\tL3: See TECH-693 for reference.");
         print_critical();
     }
 }
