@@ -3430,7 +3430,7 @@ sub check_for_non_default_permissions {
                     $perms_help .= " - $path currently exists as a file.";
                 }
                 elsif ( -e _ ) {
-                    $perms_help .= " - $path currently exists.";
+                    $perms_help .= " - $path currently exists and is not a file or directory.";
                 }
                 print_warn('Missing: ');
                 print_warning( $path . $symlink . $perms_help );
