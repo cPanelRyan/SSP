@@ -1476,10 +1476,11 @@ sub print_cpanel_info {
     my $cpupdate_conf = get_cpupdate_conf();
     my $whm_info      = get_whm_install_info();
 
-    my $profile_id  = get_node_info();
-    my $cpanel_tier = defined $cpupdate_conf->{CPANEL} ? $cpupdate_conf->{CPANEL} : 'Unknown (could not open/read /etc/cpupdate.conf ?)';
-    my $last_update = defined $whm_info->{'lastupdatetime_epoch'} ? sprintf '%.1f', ( time() - $whm_info->{'lastupdatetime_epoch'} ) / 86400 : 'UNKNOWN';
-    my $birthday    = defined $whm_info->{'installversion'} ? $whm_info->{'installversion'} . ' on ' : '';
+    my $get_current_profile_href = get_node_info_href();
+    my $profile_id               = exists $get_current_profile_href->{'data'}->{'code'} ? $get_current_profile_href->{'data'}->{'code'} : 'UNKNOWN';
+    my $cpanel_tier              = defined $cpupdate_conf->{CPANEL} ? $cpupdate_conf->{CPANEL} : 'Unknown (could not open/read /etc/cpupdate.conf ?)';
+    my $last_update              = defined $whm_info->{'lastupdatetime_epoch'} ? sprintf '%.1f', ( time() - $whm_info->{'lastupdatetime_epoch'} ) / 86400 : 'UNKNOWN';
+    my $birthday                 = defined $whm_info->{'installversion'} ? $whm_info->{'installversion'} . ' on ' : '';
     $birthday .= defined $whm_info->{'installtime'} ? $whm_info->{'installtime'} : '';
 
     my $output = _get_run_var('cpanel_original_version') . ' (' . uc($cpanel_tier) . ' tier)' . " ($profile_id profile)" . " Last update: $last_update days ago";
@@ -1518,30 +1519,32 @@ sub print_cpanel_info {
     }
 }
 
-sub get_node_info {
+sub get_node_info_href {
     return unless i_am('cpanel');
+    return unless cpanel_version_is(qw( >= 11.75.0.0 ));    # call was introduced in version 76
 
-    return unless my $raw = timed_run( 10, '/usr/local/cpanel/bin/whmapi1', 'get_current_profile', '--output=json' );
-    return unless my $json_output = get_json_href($raw);
-
-    return exists $json_output->{'data'}->{'code'} ? $json_output->{'data'}->{'code'} : 'UNKNOWN';
+    return unless my $raw = timed_run( 0, '/usr/local/cpanel/bin/whmapi1', 'get_current_profile', '--output=json' );
+    my $json_output = get_json_href($raw);
+    return $json_output;
 }
 
 sub get_json_href {
-    my $raw = shift;
+    my ( $raw, $fail_warning ) = @_;
+
     return unless defined $raw;
-    return unless i_am('cpanel');
     my $json = load_module_with_fallbacks(
         'needed_subs'  => [qw{new utf8 decode}],
         'modules'      => [qw{Cpanel::JSON::XS JSON::XS JSON::PP}],
-        'fail_warning' => 'TIERS.json can\'t be read without one of these',
+        'fail_warning' => $fail_warning,
     );
 
-    return unless $json;
+    return {} unless $json;    # since this expects a href back, we should return an empty set in the event that the json module cannot be loaded
+
     my $href;
     local $@;
     eval { $href = $json->new->utf8->decode($raw); };    # All or nothing, just be quiet.
 
+    return {} if !$href;                                 # since this expects a href back, we should return an empty set if the raw data passed in was not valid json
     return $href;
 }
 
