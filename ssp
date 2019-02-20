@@ -1476,12 +1476,14 @@ sub print_cpanel_info {
     my $cpupdate_conf = get_cpupdate_conf();
     my $whm_info      = get_whm_install_info();
 
-    my $cpanel_tier = defined $cpupdate_conf->{CPANEL} ? $cpupdate_conf->{CPANEL} : 'Unknown (could not open/read /etc/cpupdate.conf ?)';
-    my $last_update = defined $whm_info->{'lastupdatetime_epoch'} ? sprintf '%.1f', ( time() - $whm_info->{'lastupdatetime_epoch'} ) / 86400 : 'UNKNOWN';
-    my $birthday = defined $whm_info->{'installversion'} ? $whm_info->{'installversion'} . ' on ' : '';
+    my $get_current_profile_href = get_node_info_href();
+    my $profile_id               = exists $get_current_profile_href->{'data'}->{'code'} ? $get_current_profile_href->{'data'}->{'code'} : 'UNKNOWN';
+    my $cpanel_tier              = defined $cpupdate_conf->{CPANEL} ? $cpupdate_conf->{CPANEL} : 'Unknown (could not open/read /etc/cpupdate.conf ?)';
+    my $last_update              = defined $whm_info->{'lastupdatetime_epoch'} ? sprintf '%.1f', ( time() - $whm_info->{'lastupdatetime_epoch'} ) / 86400 : 'UNKNOWN';
+    my $birthday                 = defined $whm_info->{'installversion'} ? $whm_info->{'installversion'} . ' on ' : '';
     $birthday .= defined $whm_info->{'installtime'} ? $whm_info->{'installtime'} : '';
 
-    my $output = _get_run_var('cpanel_original_version') . ' (' . uc($cpanel_tier) . ' tier)' . " Last update: $last_update days ago";
+    my $output = _get_run_var('cpanel_original_version') . ' (' . uc($cpanel_tier) . ' tier)' . " ($profile_id profile)" . " Last update: $last_update days ago";
     $output .= " [ Installed: $birthday ]" if length $birthday;
 
     print_info('cPanel Info: ');
@@ -1515,6 +1517,35 @@ sub print_cpanel_info {
         print_critical('         \_ Send customer this premade: "EOL version of cPanel"');
         print_critical('         \_ Some SSP output may be irrelevant, incomplete, or inaccurate for EOL versions!');
     }
+}
+
+sub get_node_info_href {
+    return unless i_am('cpanel');
+    return unless cpanel_version_is(qw( >= 11.75.0.0 ));    # call was introduced in version 76
+
+    return unless my $raw = timed_run( 0, '/usr/local/cpanel/bin/whmapi1', 'get_current_profile', '--output=json' );
+    my $json_output = get_json_href($raw);
+    return $json_output;
+}
+
+sub get_json_href {
+    my ( $raw, $fail_warning ) = @_;
+
+    return unless defined $raw;
+    my $json = load_module_with_fallbacks(
+        'needed_subs'  => [qw{new utf8 decode}],
+        'modules'      => [qw{Cpanel::JSON::XS JSON::XS JSON::PP}],
+        'fail_warning' => $fail_warning,
+    );
+
+    return {} unless $json;    # since this expects a href back, we should return an empty set in the event that the json module cannot be loaded
+
+    my $href;
+    local $@;
+    eval { $href = $json->new->utf8->decode($raw); };    # All or nothing, just be quiet.
+
+    return {} if !$href;                                 # since this expects a href back, we should return an empty set if the raw data passed in was not valid json
+    return $href;
 }
 
 sub check_for_cpanel_update {
@@ -3395,6 +3426,15 @@ sub check_for_non_default_permissions {
             }
             if ( $symlink || !-e _ ) {
                 $perms_help = exists $check{$path}->{perms_help} ? ' - ' . $check{$path}->{perms_help} : '';
+                if ( -d _ ) {
+                    $perms_help .= " - $path currently exists as a directory. An RPM that owns this path may fail to install.  See EA-7912.";
+                }
+                elsif ( -f _ ) {
+                    $perms_help .= " - $path currently exists as a file.";
+                }
+                elsif ( -e _ ) {
+                    $perms_help .= " - $path currently exists and is not a file or directory.";
+                }
                 print_warn('Missing: ');
                 print_warning( $path . $symlink . $perms_help );
             }
