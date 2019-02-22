@@ -304,6 +304,7 @@ sub run {
     check_for_huge_logs();
     check_easy_skip_cpanelsync();
     check_pkgacct_override();
+    check_for_yunsuo();
     check_for_gdm();
     check_for_redhat_firewall();
     check_easyapache();
@@ -3842,6 +3843,12 @@ sub check_pkgacct_override {
         print_warn('pkgacct override: ');
         print_warning(' /var/cpanel/lib/Whostmgr exists, override may exist');
     }
+}
+
+sub check_for_yunsuo {
+    return unless exists_process_cmd( qr{ yunsuo_agent }xms, 'root' );
+    print_warn('yunsuo_agent process found: ');
+    print_warning('Can break account creation/termination. See tickets 11476733, 7012047, and 7525481');
 }
 
 sub check_for_gdm {
