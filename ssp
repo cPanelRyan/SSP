@@ -34,7 +34,7 @@ use Cwd qw(abs_path);
 use Getopt::Long();
 
 # Application version (The project maintainer will bump this, don't modify it.)
-our $VERSION = '4.99.199';
+our $VERSION = '4.99.200';
 
 # Global variables that alter application runtime
 our $OPT_SKIP_NETWORKING;    # Disable network calls
@@ -264,12 +264,12 @@ sub run {
     check_for_custom_restoremodules();
     check_for_custom_zonetemplates();
     check_for_license_info();
+    check_selinux_status();    # Can also WARN
 
     ## [WARN]
     check_for_license_error();
     check_var_cpanel_users();
     check_port_hash();
-    check_selinux_status();
     check_runlevel();
     check_for_missing_root_cron();
     check_for_missing_usr_bin_crontab();
@@ -304,6 +304,7 @@ sub run {
     check_for_huge_logs();
     check_easy_skip_cpanelsync();
     check_pkgacct_override();
+    check_for_yunsuo();
     check_for_gdm();
     check_for_redhat_firewall();
     check_easyapache();
@@ -2426,10 +2427,31 @@ sub check_for_lsws_update {
 ##############################
 
 sub check_for_license_error {
+    my $cpanel_error_log   = '/usr/local/cpanel/logs/error_log';
     my $license_error_file = '/usr/local/cpanel/logs/license_error.display';
-    stat($license_error_file);
-    return unless -f _;
-    return unless -s _;
+
+    # TECH-695
+    # These can occur at any time so we need to handle it before bailing out when $license_error_file doesn't exist.
+    # Look for lines like the following, discard anything BEFORE LAST "cpsrvd started" line indicating most recent cpsrvd restart, if any.
+    # ==> cpsrvd 11.78.0.11 started
+    # License Check Failed during startup of cpsrvd: License corrupted, please fetch a new license file.
+    # License Check Failed: License corrupted, please fetch a new license file.
+    if ( cpanel_version_is(qw(>= 11.78.0.11)) ) {
+        my $start_match = qr{ \A ==> \s cpsrvd \s .+ \s started }xms;
+        my $error_match = qr{ \A License \s Check \s Failed }xms;
+        my $match_limit = 4;
+        my $error_ar    = get_last_lines_from_file( $cpanel_error_log, qr{ (?: $start_match | $error_match ) }xms, $match_limit );
+        tail_array_after_match( $error_ar, $start_match );
+        if ( @{$error_ar} ) {
+            my $indent = "\n         \\_ ";
+            print_warn('License Error: ');
+            print_warning( "found in $cpanel_error_log after last cpsrvd restart:$indent" . join $indent, @{$error_ar} );
+        }
+    }
+
+    # Everything after this depends on something in $license_error_file
+
+    return unless -f $license_error_file && -s _;
 
     my $license_error;
     if ( open( my $license_error_fh, '<', $license_error_file ) ) {
@@ -2452,6 +2474,8 @@ sub check_for_license_error {
         return;
     }
 
+    # Everything after this is WHM 11.32+
+
     if (
         $license_error =~ m{ \A
          \QThe hostname must be a Fully Qualified Domain Name! (\E.+\)
@@ -2461,10 +2485,8 @@ sub check_for_license_error {
         print_warn('License Error: ');
         print_warning( '[ ' . $license_error . ' ]' );
         print_warning('         \_ If this license error is not resolved after correctly setting the hostname AND ensuring that the hostname can be pinged from the local host ( ping `hostname` ), then fork ticket for license issue if not related to current issue, send "ESCALATE - License issue to Dev" response, and escalate ticket to "QA/Development".');
-        return;
     }
-
-    if (
+    elsif (    # This one is CRIT because it requires escalation
         $license_error =~ m{ \A
          \QDoes not compute!\E
        | \QReturn without Gosub.\E
@@ -2475,12 +2497,49 @@ sub check_for_license_error {
         print_crit('License Error: ');
         print_critical( '[ ' . $license_error . ' ]' );
         print_critical('         \_ Fork ticket for license issue if not related to current issue, send "ESCALATE - License issue to Dev" response, and escalate ticket to "QA/Development".');
-        return;
     }
+    else {
+        print_warn('License Error: ');
+        print_warning( '[ ' . $license_error . ' ]' );
+    }
+}
 
-    # Not any of the above
-    print_warn('License Error: ');
-    print_warning( '[ ' . $license_error . ' ]' );
+sub get_last_lines_from_file {
+
+    # Returns array-ref containing the LAST $return_limit (number) lines that match $pattern which exist within $bytes_limit bytes of the end of $file.
+    # Everything but $file is optional.
+    # TODO: Read file in reverse similar to File::ReadBackwards (not using it right now because not a core module)
+    my ( $file, $pattern, $return_limit, $bytes_limit ) = @_;
+    return [] unless -e $file;
+    return [] unless my $size = ( stat($file) )[7];
+    $bytes_limit  = defined $bytes_limit  ? $bytes_limit + 0  : 5_000_000;    # Default is last 5MB of file
+    $return_limit = defined $return_limit ? $return_limit + 0 : 1;            # Default is 1 line returned
+    $pattern      = defined $pattern      ? $pattern          : qr{};         # Default is any match
+    my @lines;
+
+    if ( open my $fh, '<', $file ) {
+        seek $fh, -$bytes_limit, 2;
+        while (<$fh>) {
+            if (m{$pattern}xms) {
+                chomp;
+                shift @lines if scalar @lines >= $return_limit;
+                push @lines, $_;
+            }
+        }
+        close $fh;
+    }
+    return \@lines;
+}
+
+sub tail_array_after_match {
+
+    # Modifies $aref in place by searching backwards for first $pattern match and discarding the match and everything before it.
+    my ( $aref, $pattern ) = @_;
+    for ( my $i = $#{$aref}; $i >= 0; $i-- ) {
+        next unless $aref->[$i] =~ $pattern;
+        splice( @{$aref}, 0, $i + 1 );
+        last;
+    }
 }
 
 sub check_port_hash {
@@ -3016,8 +3075,8 @@ sub check_apache_modules {
         }
     }
     if ( defined $installed_modules->{'security_module'} or defined $installed_modules->{'security2_module'} ) {
-        $add->( 'mpm_itk_module', 'Incompatible with ModSecurity SecDataDir (collections) until EA-4093 is resolved.' );
-        $add->( 'ruid2_module',   'Incompatible with ModSecurity SecDataDir (collections) until EA-4093 is resolved.' );
+        $add->( 'mpm_itk_module', 'Incompatible with ModSecurity SecDataDir (collections). See case EA-4093.' );
+        $add->( 'ruid2_module',   'Incompatible with ModSecurity SecDataDir (collections). See case EA-4093.' );
     }
     if ( defined $CPCONF{'jailapache'} && $CPCONF{'jailapache'} == 1 ) {
         $add->( 'ruid2_module', 'Enabled with Jail Apache Virtual Hosts tweak. This can break some Mailman URLs. See CPANEL-9501 and CPANEL-18127.' );
@@ -3882,6 +3941,12 @@ sub check_pkgacct_override {
         print_warn('pkgacct override: ');
         print_warning(' /var/cpanel/lib/Whostmgr exists, override may exist');
     }
+}
+
+sub check_for_yunsuo {
+    return unless exists_process_cmd( qr{ yunsuo_agent }xms, 'root' );
+    print_warn('yunsuo_agent process found: ');
+    print_warning('Can break account creation/termination. See tickets 11476733, 7012047, and 7525481');
 }
 
 sub check_for_gdm {
@@ -7109,6 +7174,34 @@ sub check_cloudlinux_sanity {
             }
         }
     }
+    my $cldetect          = '/usr/bin/cldetect';
+    my $check_license_opt = '--check-license';
+    if ( -x $cldetect ) {
+        my $cldetect_help = timed_run_trap_stderr( 0, $cldetect, '--help' );
+        if ( defined $cldetect_help and $cldetect_help =~ m{ $check_license_opt }xms ) {
+            local $?;
+            timed_run( 0, $cldetect, $check_license_opt, '-q' );    # The -q is necessary for it to use exit status
+            my $cldetect_check_license_status = $? >> 8;
+            if ($cldetect_check_license_status) {
+                print_warn('CloudLinux: ');
+                print_warning("[ $cldetect $check_license_opt ] returned an error, run it for more information. An invalid license can prevent CL repos appearing in Yum.");
+            }
+        }
+    }
+    my $cldetect          = '/usr/bin/cldetect';
+    my $check_license_opt = '--check-license';
+    if ( -x $cldetect ) {
+        my $cldetect_help = timed_run_trap_stderr( 0, $cldetect, '--help' );
+        if ( defined $cldetect_help and $cldetect_help =~ m{ $check_license_opt }xms ) {
+            local $?;
+            timed_run( 0, $cldetect, $check_license_opt, '-q' );    # The -q is necessary for it to use exit status
+            my $cldetect_check_license_status = $? >> 8;
+            if ($cldetect_check_license_status) {
+                print_warn('CloudLinux: ');
+                print_warning("[ $cldetect $check_license_opt ] returned an error, run it for more information. An invalid license can prevent CL repos appearing in Yum.");
+            }
+        }
+    }
 }
 
 sub check_for_UMBREON_rootkit {
@@ -7941,12 +8034,20 @@ sub check_for_cpro {
       /etc/customcspips
       /opt/cpanel/csp/
       /usr/bin/clnupdate
+      /usr/bin/checkstatus
+      /usr/bin/cspdaemon
       /usr/bin/update_clnv2
       /usr/bin/update_clnv2.lock
+      /usr/bin/update_cloudv2
+      /usr/bin/update_cloudv2.lock
       /usr/bin/update_cpanelv2
       /usr/bin/update_cpanelv2.lock
       /usr/bin/update_cpanelv3
       /usr/bin/update_cpanelv3.lock
+      /usr/bin/update_jetbackup
+      /usr/bin/update_jetbackup.lock
+      /usr/bin/update_lswsv2
+      /usr/bin/update_lswsv2.lock
       /usr/bin/yasin
       /usr/local/cpanel/bin/cspconnector
       /usr/local/cpanel/bin/sendmail.txt
@@ -7956,15 +8057,22 @@ sub check_for_cpro {
       /usr/local/cpanel/license/update_cpanelv2
       /usr/local/cpanel/whostmgr/cgi/check.php
       /var/log/updatecp/
+      /var/run/cspdaemon.lock
       /YasITCSP/
     );
 
-    my @bad_paths = grep { -e $_ } @paths;
-    if (@bad_paths) {
+    if ( my @bad_paths = grep { -e $_ } @paths ) {
         print_generic_hack_predef('C.PRO');
         print_critical('The following files or directories were found:');
         print_critical( "\t" . join( " ", @bad_paths ) );
         print_critical("\tL3: See ticket 7790559 for reference.");
+        print_critical();
+    }
+    if ( my %procs = grep_process_cmd( '^(cspdaemon|checkstatus)$', 'root' ) ) {
+        print_generic_hack_predef('C.PRO');
+        print_critical('The following suspicious running processes were found (please verify):');
+        print_critical( "\t\\_ " . join( "\n\t\\_ ", map { my ( $u, $c, $a ) = @{ $procs{$_} }{ 'USER', 'COMM', 'ARGS' }; "[pid: $_] [user: $u] [cmd: $c] [args: $a]" } keys %procs ) );
+        print_critical("\tL3: See TECH-693 for reference.");
         print_critical();
     }
 }
@@ -8010,7 +8118,7 @@ sub check_for_yoncu {
         $bad_paths_found = 1;
     }
 
-    if ( -T '/usr/local/cpanel/cpkeyclt' ) {
+    if ( -s '/usr/local/cpanel/cpkeyclt' && -T _ ) {
         $bad_cpkeyclt_found = 1;
     }
 
