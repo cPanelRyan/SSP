@@ -34,7 +34,7 @@ use Cwd qw(abs_path);
 use Getopt::Long();
 
 # Application version (The project maintainer will bump this, don't modify it.)
-our $VERSION = '4.99.200';
+our $VERSION = '4.99.201';
 
 # Global variables that alter application runtime
 our $OPT_SKIP_NETWORKING;    # Disable network calls
@@ -7171,20 +7171,6 @@ sub check_cloudlinux_sanity {
             if ($cagefsctl_sanity_check_status) {
                 print_warn('CloudLinux: ');
                 print_warning('[ /usr/sbin/cagefsctl --sanity-check ] returned non-zero exit status, run it for more information.');
-            }
-        }
-    }
-    my $cldetect          = '/usr/bin/cldetect';
-    my $check_license_opt = '--check-license';
-    if ( -x $cldetect ) {
-        my $cldetect_help = timed_run_trap_stderr( 0, $cldetect, '--help' );
-        if ( defined $cldetect_help and $cldetect_help =~ m{ $check_license_opt }xms ) {
-            local $?;
-            timed_run( 0, $cldetect, $check_license_opt, '-q' );    # The -q is necessary for it to use exit status
-            my $cldetect_check_license_status = $? >> 8;
-            if ($cldetect_check_license_status) {
-                print_warn('CloudLinux: ');
-                print_warning("[ $cldetect $check_license_opt ] returned an error, run it for more information. An invalid license can prevent CL repos appearing in Yum.");
             }
         }
     }
