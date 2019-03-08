@@ -7499,8 +7499,13 @@ sub check_for_1h {
 sub check_for_webmin {
     return unless my $ports = get_lsof_port_href();
     return unless exists( $ports->{'10000'} );
-    print_3rdp('Webmin: ');
-    print_3rdp2('Port 10000 is listening, webmin may be running');
+    for my $ref ( @{ $ports->{'10000'} } ) {
+        if ( index( $ref->{'CMD'}, 'miniserv.pl' ) == 0 ) {
+            print_3rdp('Webmin: ');
+            print_3rdp2('Webmin is running and is listening on port 10000');
+            last;
+        }
+    }
 }
 
 sub check_for_symantec {
