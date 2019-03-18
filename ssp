@@ -6055,7 +6055,7 @@ sub get_license_info {
     my $path = '/api/ipaddrs?ip=' . $external_ip_address;
     my $host = 'verify.cpanel.net';
     return _http_get( Host => $host, Path => $path, ReportTimeout => 1, SSL => 1, SSLLoadFailWarning => 'can\'t make HTTPS request to verify.cpanel.net' );
-}  
+}
 
 sub check_for_license_info {
     my %license;
@@ -6071,8 +6071,8 @@ sub check_for_license_info {
 
     if ( defined($external_ip_address) ) {
         $helper_url .= $external_ip_address;
-        foreach my $key (@{ $license_href->{current} }) {
-           ++$license{$key->{'product'}} if ( defined($key->{'status'}) && $key->{'status'} eq 1 );
+        foreach my $key ( @{ $license_href->{current} } ) {
+            ++$license{ $key->{'product'} } if ( defined( $key->{'status'} ) && $key->{'status'} eq 1 );
         }
         if ( my $licenses = join " ", map { "[$_]" } sort keys %license ) {
             print_info('License: ');
