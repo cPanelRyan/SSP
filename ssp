@@ -6050,28 +6050,21 @@ sub check_for_disabled_services {
     print_warning( '[ ' . join( ' ', sort( keys(%disabled_services) ) ) . ' ]' );
 }
 
-sub get_license_info_json {
+sub get_license_info {
     return unless my $external_ip_address = get_external_ip();
     my $path = '/api/ipaddrs?ip=' . $external_ip_address;
     my $host = 'verify.cpanel.net';
     return _http_get( Host => $host, Path => $path, ReportTimeout => 1, SSL => 1, SSLLoadFailWarning => 'can\'t make HTTPS request to verify.cpanel.net' );
 }  
 
-sub get_license_info {
-    return unless my $external_ip_address = get_external_ip();
-    my $path = '/app/verify?ip=' . $external_ip_address;
-    my $host = 'verify.cpanel.net';
-    return _http_get( Host => $host, Path => $path, ReportTimeout => 1, SSL => 1, SSLLoadFailWarning => 'can\'t make HTTPS request to verify.cpanel.net' );
-}
-
-sub check_for_license_info_json {
+sub check_for_license_info {
     my %license;
     my $host                     = 'verify.cpanel.net';
     my $helper_url               = "https://" . $host . '/app/verify?ip=';
     my $file_is_solo             = license_file_is_solo();
     my $file_is_dnsonly          = license_file_is_dnsonly();
     my $dnsonly_touchfile        = '/var/cpanel/dnsonly';
-    my $license_query            = get_license_info_json();
+    my $license_query            = get_license_info();
     my $license_href             = get_json_href($license_query);
     my $external_ip_address      = get_external_ip();
     my $external_license_address = get_external_license_ip();
@@ -6122,94 +6115,6 @@ sub check_for_license_info_json {
     if ( i_am('kernelcare') and not exists( $license{'KernelCare'} ) ) {
         print_warn('KernelCare: ');
         print_warning(qq{MAY NOT BE LICENSED! - verify at $helper_url - use "LICENSE - Kernelcare Not Licensed through    cPanel" if relevant});
-    }
-}
-
-sub check_for_license_info {
-    my $host       = 'verify.cpanel.net';
-    my $helper_url = "https://" . $host;
-    my %license;
-    my $file_is_solo             = license_file_is_solo();
-    my $file_is_dnsonly          = license_file_is_dnsonly();
-    my $dnsonly_touchfile        = '/var/cpanel/dnsonly';
-    my $external_ip_address      = get_external_ip();
-    my $external_license_address = get_external_license_ip();
-
-    if ( defined($external_ip_address) ) {
-        my $url = '/app/verify?ip=' . $external_ip_address;
-        $helper_url .= $url;
-        if ( my $reply = get_license_info() ) {
-            if ( $reply =~ /alt="cPanel\/WHM"/ ) {
-                $license{'cpanel'} = "cPanel";
-            }
-
-            if ( $reply =~ /alt="CloudLinux"/ ) {
-                $license{'cloudlinux'} = "CloudLinux";
-            }
-
-            if ( $reply =~ /alt="DNSONLY"/ ) {
-                $license{'dnsonly'} = "DNSONLY";
-            }
-
-            if ( $reply =~ /alt="KernelCare"/ ) {
-                $license{'kernelcare'} = "KernelCare";
-            }
-
-            if ( $reply =~ /ONE TIME FEE/ ) {
-                $license{'onetime'} = "One-Time";
-            }
-
-            if ( $reply =~ /alt="LiteSpeed"/ ) {
-                $license{'litespeed'} = "LiteSpeed";
-            }
-        }
-        if ( my $licenses = join " ", map { "[$license{$_}]" } sort keys %license ) {
-            print_info('License: ');
-            print_normal("$external_ip_address has $licenses");
-        }
-        else {
-            print_info('License: ');
-            print_normal("Not found on verify.cpanel.net, or request timed out -- verify at ${helper_url}");
-        }
-        if ( exists( $license{'onetime'} ) ) {
-            print_warn('License: ');
-            print_warning("may be a one-time cPanel license -- manually verify at [ ${helper_url} ]");
-        }
-        if ( ( defined($external_license_address) ) && !( $external_ip_address eq $external_license_address ) ) {
-            print_crit('License: ');
-            print_critical("external IP detected via port 80 [ $external_ip_address ] does not match IP detected via port 2089 [ $external_license_address ] which can result in unexpected cPanel license update behavior.");
-        }
-
-    }
-
-    if ($file_is_solo) {
-        print_info('License: ');
-        print_normal('cPanel Solo (limited to 1 account)');
-    }
-
-    my $cpanel_17906_text =
-      "         \\_ If license does not update correctly then fork ticket for license issue if not related to current issue.\n         \\_ In license-issue ticket -- tag case CPANEL-17906, diagnose and resolve possible network-related causes of license update failure and update case if this is successful -- if license update issue can not be resolved, send 'ESCALATE - License issue to Dev' response and escalate ticket to 'QA/Development'.";
-    if ( cpanel_version_is(qw ( >= 11.68.0.25 )) ) {
-        if ( not $file_is_dnsonly and -e $dnsonly_touchfile ) {
-            print_crit('License: ');
-            print_critical("$dnsonly_touchfile exists but installed license file is not DNSONLY.  Try using '/usr/local/cpanel/cpkeyclt --force' to update license.");
-            print_critical($cpanel_17906_text);
-        }
-        if ( $file_is_dnsonly and not -e $dnsonly_touchfile ) {
-            print_crit('License: ');
-            print_critical("Installed license file is DNSONLY but $dnsonly_touchfile does not exist.  Try using '/usr/local/cpanel/cpkeyclt --force' to update license.");
-            print_critical($cpanel_17906_text);
-        }
-    }
-
-    if ( i_am('cloudlinux') and not exists( $license{'cloudlinux'} ) ) {
-        print_warn('CloudLinux: ');
-        print_warning(qq{MAY NOT BE LICENSED! - verify at $helper_url - use "LICENSE - CloudLinux Not Licensed through cPanel" if relevant});
-    }
-
-    if ( i_am('kernelcare') and not exists( $license{'kernelcare'} ) ) {
-        print_warn('KernelCare: ');
-        print_warning(qq{MAY NOT BE LICENSED! - verify at $helper_url - use "LICENSE - Kernelcare Not Licensed through cPanel" if relevant});
     }
 }
 
