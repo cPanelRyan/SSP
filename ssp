@@ -6072,7 +6072,10 @@ sub check_for_license_info {
     if ( defined($external_ip_address) ) {
         $helper_url .= $external_ip_address;
         foreach my $key ( @{ $license_href->{current} } ) {
-            ++$license{ $key->{'product'} } if ( defined( $key->{'status'} ) && $key->{'status'} eq 1 );
+            if ( defined( $key->{'status'} ) && $key->{'status'} eq 1 ) {
+                ++$license{ $key->{'product'} };
+                ++$license{ $key->{'product'} } if ( defined( $key->{'package'} ) && $key->{'package'} eq 'ONE TIME FEE' );
+            }
         }
         if ( my $licenses = join " ", map { "[$_]" } sort keys %license ) {
             print_info('License: ');
@@ -6081,6 +6084,12 @@ sub check_for_license_info {
         else {
             print_info('License: ');
             print_normal("Not found on verify.cpanel.net, or request timed out -- verify at ${helper_url}");
+        }
+        foreach my $key ( sort keys %license ) {
+            if ( $license{$key} > 1 ) {
+                print_info('License: ');
+                print_normal("[$key] may be a one-time license -- manually verify at [ ${helper_url} ]");
+            }
         }
         if ( ( defined($external_license_address) ) && !( $external_ip_address eq $external_license_address ) ) {
             print_crit('License: ');
