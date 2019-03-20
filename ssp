@@ -8546,18 +8546,7 @@ sub print_profiling_data {
 sub get_tiers_json_href {
     my $raw = _http_get( Host => 'httpupdate.cpanel.net', Path => '/cpanelsync/TIERS.json' );
     return unless $raw;
-
-    my $json = load_module_with_fallbacks(
-        'needed_subs'  => [qw{new utf8 decode}],
-        'modules'      => [qw{Cpanel::JSON::XS JSON::XS JSON::PP}],
-        'fail_warning' => 'TIERS.json can\'t be read without one of these',
-    );
-
-    return unless $json;
-    my $href;
-    local $@;
-    eval { $href = $json->new->utf8->decode($raw); };    # All or nothing, just be quiet.
-
+    my $href = get_json_href($raw);
     return if not exists $href->{'tiers'};
     return $href;
 }
